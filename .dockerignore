@@ -1,0 +1,10 @@
+.git
+.agents
+.codex
+data
+ssh
+hamnet/wg_confs
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.log
