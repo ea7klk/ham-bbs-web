@@ -51,6 +51,6 @@ The GitHub Actions workflow in `.github/workflows/docker-image.yml` builds multi
 ghcr.io/<owner>/<repo>
 ```
 
-Pull requests build without publishing. Pushes to `main`, version tags like `v1.2.3`, and manual workflow runs publish to GHCR.
+Pull requests and manual workflow runs build without publishing. New version tags like `v1.2.3` and published GitHub releases publish to GHCR.
 
 Set `BBS_WEB_IMAGE` in `.env` if your GHCR package name differs from the default `ghcr.io/ea7klk/ham-bbs-web`.
