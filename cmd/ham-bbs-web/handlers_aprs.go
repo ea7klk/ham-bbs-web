@@ -229,7 +229,7 @@ func (s *server) sendLoginAPRSBeacon(callsign string, profile dbUser) {
 }
 
 func (s *server) sendAPRSBeacon(source string, lat, lon float64, comment string) error {
-	source = normalizeAPRSCallsign(source)
+	source = aprsSSID0(source)
 	if !validAPRSCallsign(source) {
 		return fmt.Errorf("invalid APRS beacon source: %s", source)
 	}
@@ -263,11 +263,11 @@ func (s *server) sendAPRSBeacon(source string, lat, lon float64, comment string)
 }
 
 func formatAPRSMessagePacket(source, destination, text string) string {
-	return fmt.Sprintf("%s>APRS,TCPIP*::%-9s:%s", normalizeAPRSCallsign(source), normalizeAPRSCallsign(destination), text)
+	return fmt.Sprintf("%s>APRS,TCPIP*::%-9s:%s", aprsSSID0(source), normalizeAPRSCallsign(destination), text)
 }
 
 func formatAPRSBeaconPacket(source string, lat, lon float64, comment string) string {
-	return fmt.Sprintf("%s>APRS,TCPIP*:%s", normalizeAPRSCallsign(source), formatAPRSPosition(lat, lon, '\\', 'm', comment))
+	return fmt.Sprintf("%s>APRS,TCPIP*:%s", aprsSSID0(source), formatAPRSPosition(lat, lon, '\\', 'm', comment))
 }
 
 func formatAPRSPosition(lat, lon float64, symbolTable, symbolCode rune, comment string) string {
@@ -338,7 +338,11 @@ func aprsBaseCallsign(callsign string) string {
 }
 
 func aprsSSID0(callsign string) string {
-	return aprsBaseCallsign(callsign) + "-0"
+	base := aprsBaseCallsign(callsign)
+	if base == "" {
+		return ""
+	}
+	return base + "-0"
 }
 
 func cleanAPRSBody(text string) string {
@@ -472,6 +476,9 @@ func splitAPRSDestination(destination string) (string, string) {
 
 func composeAPRSDestination(callsign, ssid string) string {
 	callsign = normalizeAPRSCallsign(callsign)
+	if callsign == "" {
+		return ""
+	}
 	ssid = normalizeAPRSSSID(ssid)
 	if ssid == "" {
 		return callsign
