@@ -21,7 +21,7 @@ func (s *server) bulletinCreate(w http.ResponseWriter, r *http.Request, user *db
 	s.db.Model(&dbBulletin{}).Select("COALESCE(MAX(position), -1)").Scan(&maxPos)
 	item := dbBulletin{Position: maxPos + 1, Title: strings.TrimSpace(r.FormValue("title")), Body: strings.TrimSpace(r.FormValue("body")), Updated: now(), From: user.Callsign}
 	if item.Title == "" || item.Body == "" {
-		s.view(w, r, "bulletin_form", user, item, "", "Title and body are required.")
+		s.view(w, r, "bulletin_form", user, item, "", s.t(user.Language, "required"))
 		return
 	}
 	s.db.Create(&item)
@@ -49,7 +49,7 @@ func (s *server) bulletinUpdate(w http.ResponseWriter, r *http.Request, user *db
 	item.Updated = now()
 	item.From = user.Callsign
 	if item.Title == "" || item.Body == "" {
-		s.view(w, r, "bulletin_form", user, item, "", "Title and body are required.")
+		s.view(w, r, "bulletin_form", user, item, "", s.t(user.Language, "required"))
 		return
 	}
 	s.db.Save(&item)

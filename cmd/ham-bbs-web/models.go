@@ -107,3 +107,9 @@ type sentAPRSPart struct {
 	MessageID string
 	Acked     bool
 }
+
+type ackBadge struct {
+	Icon     string
+	Class    string
+	LabelKey string
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -18,11 +19,11 @@ func (s *server) loginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user.Disabled {
-		s.view(w, r, "login", nil, nil, "", "This account is disabled.")
+		s.view(w, r, "login", nil, nil, "", s.t(user.Language, "web_account_disabled"))
 		return
 	}
 	if !verifyPassword(password, user.PasswordHash) {
-		s.view(w, r, "login", nil, nil, "", "Wrong callsign or password.")
+		s.view(w, r, "login", nil, nil, "", s.t(user.Language, "web_wrong_login"))
 		return
 	}
 	user.LastSeen = now()
@@ -49,7 +50,7 @@ func (s *server) registerPost(w http.ResponseWriter, r *http.Request) {
 	var count int64
 	s.db.Model(&dbUser{}).Where("callsign = ?", callsign).Count(&count)
 	if count > 0 {
-		s.view(w, r, "register", nil, map[string]any{"Callsign": callsign, "Languages": languageChoices(), "User": user}, "", "That callsign already exists. Please log in.")
+		s.view(w, r, "register", nil, map[string]any{"Callsign": callsign, "Languages": languageChoices(), "User": user}, "", s.t(user.Language, "web_duplicate_callsign"))
 		return
 	}
 	user.FirstSeen = now()
@@ -66,7 +67,7 @@ func (s *server) registerPost(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) logoutPost(w http.ResponseWriter, r *http.Request) {
 	s.clearSession(w, r)
-	http.Redirect(w, r, "/login?msg=Logged+out", http.StatusSeeOther)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (s *server) home(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -79,7 +80,7 @@ func (s *server) home(w http.ResponseWriter, r *http.Request, user *dbUser) {
 }
 
 func (s *server) profileForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	s.view(w, r, "profile", user, map[string]any{"Languages": languageChoices()}, "", "")
+	s.view(w, r, "profile", user, map[string]any{"Languages": languageChoices()}, r.URL.Query().Get("msg"), "")
 }
 
 func (s *server) profilePost(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -98,7 +99,7 @@ func (s *server) profilePost(w http.ResponseWriter, r *http.Request, user *dbUse
 	}
 	s.db.Save(&updated)
 	s.logBBSAction(user.Callsign, "web_profile_update", "")
-	http.Redirect(w, r, "/profile?msg=Profile+updated", http.StatusSeeOther)
+	http.Redirect(w, r, "/profile?msg="+url.QueryEscape(s.t(updated.Language, "web_profile_saved")), http.StatusSeeOther)
 }
 
 func (s *server) userFromForm(r *http.Request, user dbUser, requirePassword bool) (dbUser, string) {
@@ -110,26 +111,30 @@ func (s *server) userFromForm(r *http.Request, user dbUser, requirePassword bool
 	user.EnableAPRS = r.FormValue("enable_aprs") == "true"
 	user.QTH = strings.TrimSpace(r.FormValue("qth"))
 	user.Rig = strings.TrimSpace(r.FormValue("rig"))
+	lang := user.Language
+	if lang == "" {
+		lang = "en"
+	}
 	if !callsignRE.MatchString(user.Callsign) {
-		return user, "Enter a valid callsign or handle."
+		return user, s.t(lang, "web_invalid_callsign")
 	}
 	if user.FullName == "" || !emailRE.MatchString(user.Email) {
-		return user, "Full name and a valid email are required."
+		return user, s.t(lang, "web_required_profile")
 	}
 	if user.Language == "" {
 		user.Language = "en"
 	}
 	if _, ok := languages[user.Language]; !ok {
-		return user, "Choose a valid language."
+		return user, s.t(lang, "web_invalid_language")
 	}
 	if user.Maidenhead != "" && !maidenheadRE.MatchString(user.Maidenhead) {
-		return user, "Enter a valid Maidenhead locator or leave it blank."
+		return user, s.t(lang, "web_invalid_locator")
 	}
 	pass := r.FormValue("new_password")
 	verify := r.FormValue("verify_password")
 	if requirePassword || pass != "" || verify != "" {
 		if pass == "" || pass != verify {
-			return user, "Password fields must match."
+			return user, s.t(lang, "web_password_match")
 		}
 		user.PasswordHash = hashPassword(pass)
 	}

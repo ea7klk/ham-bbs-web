@@ -15,10 +15,12 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 
 COPY --from=build /out/ham-bbs-web /usr/local/bin/ham-bbs-web
+COPY translations.json /usr/local/share/ham-bbs-web/translations.json
 
 ENV BBS_WEB_ADDR=:8080 \
     BBS_DATA_DIR=/var/lib/bbs \
-    BBS_DB_FILE=/var/lib/bbs/bbs.sqlite
+    BBS_DB_FILE=/var/lib/bbs/bbs.sqlite \
+    BBS_TRANSLATIONS_FILE=/usr/local/share/ham-bbs-web/translations.json
 
 EXPOSE 8080
 VOLUME ["/var/lib/bbs"]

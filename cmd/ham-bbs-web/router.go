@@ -32,6 +32,8 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /boards/{id}/edit", s.requireSysop(s.boardUpdate))
 	mux.HandleFunc("POST /boards/{id}/delete", s.requireSysop(s.boardDelete))
 	mux.HandleFunc("GET /aprs", s.requireAuth(s.aprs))
+	mux.HandleFunc("GET /aprs/sent/{id}", s.requireAuth(s.aprsSentDetail))
+	mux.HandleFunc("GET /aprs/received/{id}", s.requireAuth(s.aprsReceivedDetail))
 	mux.HandleFunc("POST /aprs/toggle", s.requireAuth(s.aprsToggle))
 	mux.HandleFunc("POST /aprs/send", s.requireAuth(s.aprsSend))
 	mux.HandleFunc("GET /admin/users", s.requireSysop(s.adminUsers))
@@ -112,7 +114,11 @@ func (s *server) clearSession(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) view(w http.ResponseWriter, r *http.Request, name string, user *dbUser, data any, msg string, errText string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	vd := viewData{AppName: s.cfg.name, Location: s.cfg.location, Topic: s.cfg.topic, SysopName: s.cfg.sysopName, User: user, Flash: msg, Error: errText, Data: data}
+	lang := "en"
+	if user != nil && user.Language != "" {
+		lang = user.Language
+	}
+	vd := viewData{AppName: s.cfg.name, Location: s.cfg.location, Topic: s.cfg.topic, SysopName: s.cfg.sysopName, User: user, Lang: lang, Flash: msg, Error: errText, Data: data}
 	if user != nil {
 		vd.IsSysop = s.isSysop(user)
 	}

@@ -19,6 +19,30 @@ func (s *server) aprs(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	s.view(w, r, "aprs", user, map[string]any{"Sent": sent, "Received": received}, "", "")
 }
 
+func (s *server) aprsSentDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	id, _ := strconv.Atoi(r.PathValue("id"))
+	var msg dbAPRSSent
+	err := s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
+		Where("id = ? AND user_callsign = ?", id, user.Callsign).
+		First(&msg).Error
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	s.view(w, r, "aprs_sent_detail", user, map[string]any{"Message": msg}, "", "")
+}
+
+func (s *server) aprsReceivedDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	id, _ := strconv.Atoi(r.PathValue("id"))
+	var msg dbAPRSReceived
+	err := s.db.Where("id = ? AND user_callsign = ?", id, user.Callsign).First(&msg).Error
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	s.view(w, r, "aprs_received_detail", user, map[string]any{"Message": msg}, "", "")
+}
+
 func (s *server) aprsToggle(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	enabled := r.FormValue("enable_aprs") == "true"
 	s.db.Model(user).Updates(map[string]any{"enable_aprs": enabled, "last_seen": now()})
@@ -353,9 +377,48 @@ func normalizeAPRSStatus(status string) string {
 		return "sent"
 	case "failed", "failure", "error":
 		return "failed"
+	case "rejected", "reject", "rej":
+		return "rejected"
 	default:
 		return status
 	}
+}
+
+func sentAckBadge(item dbAPRSSent) ackBadge {
+	if sentRejected(item) {
+		return ackBadge{Icon: "✕", Class: "ack-rejected", LabelKey: "web_rejected"}
+	}
+	if len(item.Parts) == 0 {
+		if item.Acked {
+			return ackBadge{Icon: "✓", Class: "ack-ok", LabelKey: "web_fully_acked"}
+		}
+		return ackBadge{LabelKey: "web_no_ack"}
+	}
+	acked := 0
+	for _, part := range item.Parts {
+		if part.Acked {
+			acked++
+		}
+	}
+	if acked == len(item.Parts) {
+		return ackBadge{Icon: "✓", Class: "ack-ok", LabelKey: "web_fully_acked"}
+	}
+	if acked > 0 {
+		return ackBadge{Icon: "?", Class: "ack-partial", LabelKey: "web_partially_acked"}
+	}
+	return ackBadge{LabelKey: "web_no_ack"}
+}
+
+func sentRejected(item dbAPRSSent) bool {
+	if normalizeAPRSStatus(item.Status) == "rejected" {
+		return true
+	}
+	for _, part := range item.Parts {
+		if normalizeAPRSStatus(part.Status) == "rejected" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *server) logAPRSSendResult(source, destination, text, packet, response string, err error) {

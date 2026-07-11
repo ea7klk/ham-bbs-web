@@ -37,7 +37,7 @@ func (s *server) boardCreate(w http.ResponseWriter, r *http.Request, user *dbUse
 	name := strings.TrimSpace(r.FormValue("name"))
 	board := dbBoard{ID: boardID(name), Name: name, Description: strings.TrimSpace(r.FormValue("description")), Created: now()}
 	if board.Name == "" {
-		s.view(w, r, "board_form", user, board, "", "Board name is required.")
+		s.view(w, r, "board_form", user, board, "", s.t(user.Language, "required"))
 		return
 	}
 	var maxPos int
@@ -71,7 +71,7 @@ func (s *server) boardUpdate(w http.ResponseWriter, r *http.Request, user *dbUse
 	newID := boardID(name)
 	if name == "" {
 		board.Name = name
-		s.view(w, r, "board_form", user, board, "", "Board name is required.")
+		s.view(w, r, "board_form", user, board, "", s.t(user.Language, "required"))
 		return
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {

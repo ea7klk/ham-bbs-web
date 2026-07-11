@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"gorm.io/gorm"
 	"html/template"
@@ -26,7 +27,7 @@ var (
 	emailRE         = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 	maidenheadRE    = regexp.MustCompile(`^[A-Ra-r]{2}([0-9]{2}([A-Xa-x]{2}([0-9]{2}([A-Xa-x]{2})?)?)?)?$`)
 	boardIDRE       = regexp.MustCompile(`[^a-z0-9]+`)
-	languages       = map[string]string{"en": "English", "es": "Espanol", "fr": "Francais", "de": "Deutsch"}
+	languages       = map[string]string{"en": "English", "es": "Español", "fr": "Français", "de": "Deutsch"}
 	languageOrder   = []string{"en", "es", "fr", "de"}
 	errUnauthorized = errors.New("unauthorized")
 )
@@ -37,6 +38,7 @@ type config struct {
 	dbFile     string
 	aprsLog    string
 	bbsLog     string
+	transFile  string
 	name       string
 	sysopName  string
 	sysops     map[string]bool
@@ -50,6 +52,7 @@ type server struct {
 	cfg      config
 	db       *gorm.DB
 	tpl      *template.Template
+	text     map[string]map[string]any
 	sessions map[string]string
 	mu       sync.RWMutex
 }
@@ -61,6 +64,7 @@ type viewData struct {
 	SysopName string
 	User      *dbUser
 	IsSysop   bool
+	Lang      string
 	Flash     string
 	Error     string
 	Data      any
@@ -79,6 +83,7 @@ func newServer() (*server, error) {
 		dbFile:     env("BBS_DB_FILE", filepath.Join(dataDir, "bbs.sqlite")),
 		aprsLog:    filepath.Join(dataDir, "aprs", "aprs.log"),
 		bbsLog:     filepath.Join(dataDir, "bbs.log"),
+		transFile:  env("BBS_TRANSLATIONS_FILE", defaultTranslationsFile()),
 		name:       env("BBS_NAME", "HAMNET RADIO BBS"),
 		sysopName:  env("BBS_SYSOP", "Sysop"),
 		sysops:     parseSysops(os.Getenv("BBS_SYSOPS")),
@@ -94,11 +99,56 @@ func newServer() (*server, error) {
 	if err != nil {
 		return nil, err
 	}
-	app := &server{cfg: cfg, db: db, tpl: parseTemplates(), sessions: map[string]string{}}
+	text := map[string]map[string]any{}
+	if err := readJSON(cfg.transFile, &text, map[string]map[string]any{}); err != nil {
+		return nil, err
+	}
+	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}}
 	if err := app.seedDefaultData(); err != nil {
 		return nil, err
 	}
 	return app, nil
+}
+
+func defaultTranslationsFile() string {
+	if _, err := os.Stat("translations.json"); err == nil {
+		return "translations.json"
+	}
+	return "/usr/local/share/ham-bbs-web/translations.json"
+}
+
+func readJSON[T any](path string, target *T, fallback T) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		*target = fallback
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, target); err != nil {
+		*target = fallback
+		return nil
+	}
+	return nil
+}
+
+func translation(text map[string]map[string]any, lang, key string) string {
+	if byLang, ok := text[lang]; ok {
+		if value, ok := byLang[key].(string); ok {
+			return value
+		}
+	}
+	if byLang, ok := text["en"]; ok {
+		if value, ok := byLang[key].(string); ok {
+			return value
+		}
+	}
+	return key
+}
+
+func (s *server) t(lang, key string) string {
+	return translation(s.text, lang, key)
 }
 
 func env(name, fallback string) string {

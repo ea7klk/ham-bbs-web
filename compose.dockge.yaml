@@ -79,6 +79,7 @@ services:
       - BBS_LOCATION=${BBS_LOCATION:-HamNet}
       - BBS_WELCOME_TOPIC=${BBS_WELCOME_TOPIC:-Amateur radio notes, local nets, and packet-era experiments}
       - BBS_DB_FILE=${BBS_DB_FILE:-/var/lib/bbs/bbs.sqlite}
+      - BBS_TRANSLATIONS_FILE=${BBS_TRANSLATIONS_FILE:-/usr/local/share/ham-bbs-web/translations.json}
       - APRS_IS_SERVER=${APRS_IS_SERVER:-rotate.aprs2.net}
       - APRS_IS_PORT=${APRS_IS_PORT:-14580}
     expose:
