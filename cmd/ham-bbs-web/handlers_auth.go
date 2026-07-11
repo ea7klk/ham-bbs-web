@@ -32,6 +32,7 @@ func (s *server) loginPost(w http.ResponseWriter, r *http.Request) {
 	}
 	s.db.Save(&user)
 	s.logBBSAction(user.Callsign, "web_login", "sysop=%t", s.isSysop(&user))
+	go s.sendLoginAPRSBeacon(user.Callsign, user)
 	s.setSession(w, user.Callsign)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

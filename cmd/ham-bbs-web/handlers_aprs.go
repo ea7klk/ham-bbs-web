@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"gorm.io/gorm"
+	"math"
 	"net"
 	"net/http"
 	"strconv"
@@ -206,8 +207,85 @@ func writeAPRSISPacket(conn net.Conn, packet string) error {
 	return err
 }
 
+func (s *server) sendLoginAPRSBeacon(callsign string, profile dbUser) {
+	if !profile.EnableAPRS || strings.TrimSpace(profile.Maidenhead) == "" {
+		return
+	}
+	source := aprsSSID0(callsign)
+	if !validAPRSCallsign(source) {
+		s.logBBSAction(callsign, "aprs_beacon_skipped", "reason=%q source=%q", "invalid APRS callsign", source)
+		return
+	}
+	lat, lon, err := maidenheadCenter(profile.Maidenhead)
+	if err != nil {
+		s.logBBSAction(callsign, "aprs_beacon_skipped", "locator=%q error=%q", profile.Maidenhead, err.Error())
+		return
+	}
+	if err := s.sendAPRSBeacon(source, lat, lon, aprsBeaconText); err != nil {
+		s.logBBSAction(callsign, "aprs_beacon_failed", "locator=%q lat=%.5f lon=%.5f error=%q", normalizeLocator(profile.Maidenhead), lat, lon, err.Error())
+		return
+	}
+	s.logBBSAction(callsign, "aprs_beacon_sent", "locator=%q lat=%.5f lon=%.5f", normalizeLocator(profile.Maidenhead), lat, lon)
+}
+
+func (s *server) sendAPRSBeacon(source string, lat, lon float64, comment string) error {
+	source = normalizeAPRSCallsign(source)
+	if !validAPRSCallsign(source) {
+		return fmt.Errorf("invalid APRS beacon source: %s", source)
+	}
+	passcode := aprsPasscode(source)
+	address := net.JoinHostPort(s.cfg.aprsServer, strconv.Itoa(s.cfg.aprsPort))
+	conn, err := net.DialTimeout("tcp", address, 10*time.Second)
+	if err != nil {
+		detail := fmt.Sprintf("APRS-IS unreachable at %s: %v", address, err)
+		s.logAPRSSendResult(source, "BEACON", comment, "", detail, err)
+		return err
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
+
+	reader := bufio.NewReader(conn)
+	loginLine := fmt.Sprintf("user %s pass %d vers HamNetBBSWeb 0.1\r\n", source, passcode)
+	if _, err := conn.Write([]byte(loginLine)); err != nil {
+		s.logAPRSSendResult(source, "BEACON", comment, "", "", err)
+		return err
+	}
+	response, err := readAPRSISLoginResponse(reader)
+	if err != nil {
+		s.logAPRSSendResult(source, "BEACON", comment, "", response, err)
+		return err
+	}
+
+	packet := formatAPRSBeaconPacket(source, lat, lon, comment)
+	err = writeAPRSISPacket(conn, packet)
+	s.logAPRSSendResult(source, "BEACON", comment, packet, response, err)
+	return err
+}
+
 func formatAPRSMessagePacket(source, destination, text string) string {
 	return fmt.Sprintf("%s>APRS,TCPIP*::%-9s:%s", normalizeAPRSCallsign(source), normalizeAPRSCallsign(destination), text)
+}
+
+func formatAPRSBeaconPacket(source string, lat, lon float64, comment string) string {
+	return fmt.Sprintf("%s>APRS,TCPIP*:%s", normalizeAPRSCallsign(source), formatAPRSPosition(lat, lon, '\\', 'm', comment))
+}
+
+func formatAPRSPosition(lat, lon float64, symbolTable, symbolCode rune, comment string) string {
+	latHemisphere := "N"
+	if lat < 0 {
+		latHemisphere = "S"
+	}
+	lonHemisphere := "E"
+	if lon < 0 {
+		lonHemisphere = "W"
+	}
+	lat = math.Abs(lat)
+	lon = math.Abs(lon)
+	latDegrees := int(lat)
+	lonDegrees := int(lon)
+	latMinutes := (lat - float64(latDegrees)) * 60
+	lonMinutes := (lon - float64(lonDegrees)) * 60
+	return fmt.Sprintf("!%02d%05.2f%s%c%03d%05.2f%s%c%s", latDegrees, latMinutes, latHemisphere, symbolTable, lonDegrees, lonMinutes, lonHemisphere, symbolCode, cleanAPRSBody(comment))
 }
 
 func withAPRSMessageID(text, messageID string) string {
@@ -305,6 +383,36 @@ func splitRunes(text string, limit int) []string {
 		runes = runes[n:]
 	}
 	return out
+}
+
+func maidenheadCenter(locator string) (float64, float64, error) {
+	locator = strings.ToUpper(strings.TrimSpace(locator))
+	if !maidenheadRE.MatchString(locator) {
+		return 0, 0, fmt.Errorf("invalid Maidenhead locator: %s", locator)
+	}
+	lon := -180.0
+	lat := -90.0
+	lonSize := 20.0
+	latSize := 10.0
+
+	for i := 0; i < len(locator); i += 2 {
+		switch i {
+		case 0:
+			lon += float64(locator[i]-'A') * lonSize
+			lat += float64(locator[i+1]-'A') * latSize
+		case 2, 6:
+			lonSize /= 10
+			latSize /= 10
+			lon += float64(locator[i]-'0') * lonSize
+			lat += float64(locator[i+1]-'0') * latSize
+		case 4, 8:
+			lonSize /= 24
+			latSize /= 24
+			lon += float64(locator[i]-'A') * lonSize
+			lat += float64(locator[i+1]-'A') * latSize
+		}
+	}
+	return lat + latSize/2, lon + lonSize/2, nil
 }
 
 func normalizeAPRSMessageID(messageID string) string {
