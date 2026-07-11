@@ -17,6 +17,7 @@ const (
 	defaultBoardID       = "general"
 	passwordIterations   = 200000
 	aprsMessageLimit     = 67
+	aprsBeaconText       = "HamNet BBS"
 	sentHistoryLimit     = 200
 	receivedHistoryLimit = 500
 )
