@@ -79,12 +79,18 @@ const templates = `
     form.stack { display:grid; gap:13px; max-width:760px; }
     .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
     .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--accent); background:var(--accent); color:white; border-radius:6px; padding:9px 12px; text-decoration:none; font:inherit; cursor:pointer; }
+    .btn.small { padding:6px 9px; font-size:13px; }
     .btn.secondary { background:white; color:var(--accent); }
     .btn.danger { border-color:var(--accent2); background:var(--accent2); }
     .badge { display:inline-flex; min-width:1.6rem; justify-content:center; font-weight:800; }
     .ack-ok { color:#16803f; } .ack-rejected { color:#ba2d23; } .ack-partial { color:#c26a00; }
     .detail-grid { display:grid; grid-template-columns:minmax(140px, 220px) 1fr; gap:8px 14px; }
     .detail-grid dt { color:var(--muted); } .detail-grid dd { margin:0; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .actions form { margin:0; }
+    .bulk-bar { display:flex; justify-content:flex-end; margin-top:10px; }
+    label.checkbox-label { display:inline-flex; align-items:center; gap:6px; margin:0; color:inherit; font-size:inherit; }
+    input[type=checkbox] { width:auto; padding:0; }
     a.rowlink { color:var(--ink); text-decoration:none; font-weight:650; }
     a.rowlink:hover { color:var(--accent); text-decoration:underline; }
     table { width:100%; border-collapse:collapse; background:white; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
@@ -100,6 +106,26 @@ const templates = `
 <main>
 {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
 {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
+<script>
+  function aprsSelectionBoxes(group) {
+    return Array.prototype.slice.call(document.querySelectorAll('[data-aprs-group="' + group + '"]'));
+  }
+  function syncAPRSSelection(group) {
+    var boxes = aprsSelectionBoxes(group);
+    var selected = boxes.filter(function (box) { return box.checked; });
+    var header = document.getElementById('aprs-select-all-' + group);
+    if (header) {
+      header.checked = boxes.length > 0 && selected.length === boxes.length;
+      header.indeterminate = selected.length > 0 && selected.length < boxes.length;
+    }
+    var bulk = document.querySelector('[data-aprs-delete-selected="' + group + '"]');
+    if (bulk) bulk.disabled = selected.length === 0;
+  }
+  function toggleAPRSSelection(group, checked) {
+    aprsSelectionBoxes(group).forEach(function (box) { box.checked = checked; });
+    syncAPRSSelection(group);
+  }
+</script>
 {{end}}
 {{define "layout_end"}}</main></body></html>{{end}}
 
@@ -127,11 +153,97 @@ const templates = `
 
 {{define "board_form"}}{{template "layout_start" .}}<h1>{{if .Data.ID}}{{tr .Lang "board_rename_title"}}{{else}}{{tr .Lang "board_form_title"}}{{end}}</h1><form class="stack" method="post"><div><label>{{tr .Lang "board_name"}}</label><input name="name" value="{{.Data.Name}}" required></div><div><label>{{tr .Lang "board_description"}}</label><input name="description" value="{{.Data.Description}}"></div><div class="row"><button class="btn">{{tr .Lang "save_button"}}</button><a class="btn secondary" href="/boards">{{tr .Lang "cancel_button"}}</a></div></form>{{if .Data.ID}}<form method="post" action="/boards/{{.Data.ID}}/delete" style="margin-top:18px"><button class="btn danger">{{tr .Lang "delete_button"}}</button></form>{{end}}{{template "layout_end" .}}{{end}}
 
-{{define "aprs"}}{{template "layout_start" .}}<h1>{{tr .Lang "menu_aprs"}}</h1><section class="card"><form method="post" action="/aprs/toggle" class="row"><label style="margin:0">{{tr .Lang "enable_aprs"}}: {{.User.Callsign}}</label><select name="enable_aprs" style="max-width:140px"><option value="false">false</option><option value="true" {{if .User.EnableAPRS}}selected{{end}}>true</option></select><button class="btn">{{tr .Lang "save_button"}}</button></form><p class="muted">{{tr .Lang "web_aprs_worker_note"}}</p></section><h2>{{tr .Lang "aprs_send_message"}}</h2><form class="stack card" method="post" action="/aprs/send"><div class="cols"><div><label>{{tr .Lang "aprs_destination_callsign"}}</label><input name="destination" required></div><div><label>{{tr .Lang "aprs_destination_ssid"}}</label><input name="destination_ssid" maxlength="2" value="0"></div></div><div><label>{{tr .Lang "aprs_text"}}</label><textarea name="text"></textarea></div><button class="btn">{{tr .Lang "send_button"}}</button></form><h2>{{tr .Lang "web_received"}}</h2><table><tr><th>{{tr .Lang "at"}}</th><th>{{tr .Lang "from"}}</th><th>{{tr .Lang "aprs_destination_callsign"}}</th><th>{{tr .Lang "aprs_text"}}</th></tr>{{range .Data.Received}}<tr><td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.At}}</a></td><td>{{.From}}</td><td>{{.To}}</td><td>{{.Text}}</td></tr>{{else}}<tr><td colspan="4">{{tr $.Lang "web_no_aprs_received"}}</td></tr>{{end}}</table><h2>{{tr .Lang "web_sent"}}</h2><table><tr><th>{{tr .Lang "web_ack_status"}}</th><th>{{tr .Lang "at"}}</th><th>{{tr .Lang "aprs_destination_callsign"}}</th><th>{{tr .Lang "status"}}</th><th>{{tr .Lang "aprs_text"}}</th></tr>{{range .Data.Sent}}{{$ack := ackBadge .}}<tr><td><span class="badge {{$ack.Class}}" title="{{tr $.Lang $ack.LabelKey}}">{{$ack.Icon}}</span></td><td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{.At}}</a></td><td>{{.To}}</td><td>{{aprsStatus $.Lang .Status}}</td><td>{{.Text}}</td></tr>{{else}}<tr><td colspan="5">{{tr $.Lang "web_no_aprs_sent"}}</td></tr>{{end}}</table>{{template "layout_end" .}}{{end}}
+{{define "aprs"}}
+{{template "layout_start" .}}
+<h1>{{tr .Lang "menu_aprs"}}</h1>
 
-{{define "aprs_sent_detail"}}{{template "layout_start" .}}{{$m := .Data.Message}}{{$ack := ackBadge $m}}<div class="between"><h1>{{tr .Lang "aprs_sent_message_detail"}}</h1><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div><section class="card"><dl class="detail-grid"><dt>{{tr .Lang "from"}}</dt><dd>{{$m.From}}</dd><dt>{{tr .Lang "aprs_destination_callsign"}}</dt><dd>{{$m.To}}</dd><dt>{{tr .Lang "at"}}</dt><dd>{{$m.At}}</dd><dt>{{tr .Lang "status"}}</dt><dd>{{aprsStatus .Lang $m.Status}}</dd><dt>{{tr .Lang "web_ack_status"}}</dt><dd><span class="badge {{$ack.Class}}">{{$ack.Icon}}</span> {{tr .Lang $ack.LabelKey}}</dd><dt>{{tr .Lang "aprs_acknowledged"}}</dt><dd>{{$m.Acked}}</dd><dt>{{tr .Lang "aprs_parts"}}</dt><dd>{{len $m.Parts}}</dd><dt>{{tr .Lang "aprs_text"}}</dt><dd>{{$m.Text}}</dd></dl></section><h2>{{tr .Lang "aprs_part_statuses"}}</h2><table><tr><th>#</th><th>{{tr .Lang "status"}}</th><th>{{tr .Lang "aprs_acknowledged"}}</th><th>{{tr .Lang "aprs_text"}}</th><th>ID</th><th>{{tr .Lang "web_detail"}}</th></tr>{{range $m.Parts}}<tr><td>{{.Number}}</td><td>{{aprsStatus $.Lang .Status}}</td><td>{{.Acked}}</td><td>{{.Text}}</td><td>{{.MessageID}}</td><td>{{.Detail}}</td></tr>{{else}}<tr><td colspan="6">{{tr $.Lang "web_no_parts"}}</td></tr>{{end}}</table>{{template "layout_end" .}}{{end}}
+<h2>{{tr .Lang "aprs_received_messages"}}</h2>
+<form method="post" action="/aprs/received/delete">
+<table>
+  <tr><th><label class="checkbox-label" for="aprs-select-all-received"><input type="checkbox" id="aprs-select-all-received" onchange="toggleAPRSSelection('received', this.checked)"><span>{{tr .Lang "select_all"}}</span></label></th><th>{{tr .Lang "at"}}</th><th>{{tr .Lang "from"}}</th><th>{{tr .Lang "aprs_destination_callsign"}}</th><th>{{tr .Lang "aprs_text"}}</th><th>{{tr .Lang "web_actions"}}</th></tr>
+  {{range .Data.Received}}
+  <tr>
+    <td><input type="checkbox" name="received_ids" value="{{.ID}}" data-aprs-group="received" onchange="syncAPRSSelection('received')" aria-label="{{tr $.Lang "aprs_received_message_detail"}}"></td>
+    <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.At}}</a></td>
+    <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.From}}</a></td>
+    <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.To}}</a></td>
+    <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.Text}}</a></td>
+    <td><div class="actions"><a class="btn secondary small" href="/aprs/received/{{.ID}}">{{tr $.Lang "web_detail"}}</a><button class="btn danger small" type="submit" formaction="/aprs/received/{{.ID}}/delete" onclick="return confirm({{printf "%q" (tr $.Lang "confirm_delete_aprs_message")}})">{{tr $.Lang "delete_button"}}</button></div></td>
+  </tr>
+  {{else}}
+  <tr><td colspan="6">{{tr $.Lang "web_no_aprs_received"}}</td></tr>
+  {{end}}
+</table>
+<div class="bulk-bar"><button class="btn danger small" type="submit" data-aprs-delete-selected="received" onclick="return confirm({{printf "%q" (tr .Lang "confirm_delete_aprs_selected")}})" disabled>{{tr .Lang "delete_selected"}}</button></div>
+</form>
 
-{{define "aprs_received_detail"}}{{template "layout_start" .}}{{$m := .Data.Message}}<div class="between"><h1>{{tr .Lang "aprs_received_message_detail"}}</h1><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div><section class="card"><dl class="detail-grid"><dt>{{tr .Lang "from"}}</dt><dd>{{$m.From}}</dd><dt>{{tr .Lang "aprs_destination_callsign"}}</dt><dd>{{$m.To}}</dd><dt>{{tr .Lang "at"}}</dt><dd>{{$m.At}}</dd><dt>{{tr .Lang "aprs_text"}}</dt><dd>{{$m.Text}}</dd>{{if $m.Raw}}<dt>{{tr .Lang "aprs_raw_packet"}}</dt><dd class="pre">{{$m.Raw}}</dd>{{end}}</dl></section>{{template "layout_end" .}}{{end}}
+<h2>{{tr .Lang "aprs_sent_messages"}}</h2>
+<form method="post" action="/aprs/sent/delete">
+<table>
+  <tr><th><label class="checkbox-label" for="aprs-select-all-sent"><input type="checkbox" id="aprs-select-all-sent" onchange="toggleAPRSSelection('sent', this.checked)"><span>{{tr .Lang "select_all"}}</span></label></th><th>{{tr .Lang "web_ack_status"}}</th><th>{{tr .Lang "at"}}</th><th>{{tr .Lang "aprs_destination_callsign"}}</th><th>{{tr .Lang "status"}}</th><th>{{tr .Lang "aprs_text"}}</th><th>{{tr .Lang "web_actions"}}</th></tr>
+  {{range .Data.Sent}}
+  {{$ack := ackBadge .}}
+  <tr>
+    <td><input type="checkbox" name="sent_ids" value="{{.ID}}" data-aprs-group="sent" onchange="syncAPRSSelection('sent')" aria-label="{{tr $.Lang "aprs_sent_message_detail"}}"></td>
+    <td><a class="rowlink" href="/aprs/sent/{{.ID}}"><span class="badge {{$ack.Class}}" title="{{tr $.Lang $ack.LabelKey}}">{{$ack.Icon}}</span></a></td>
+    <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{.At}}</a></td>
+    <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{.To}}</a></td>
+    <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{aprsStatus $.Lang .Status}}</a></td>
+    <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{.Text}}</a></td>
+    <td><div class="actions"><a class="btn secondary small" href="/aprs/sent/{{.ID}}">{{tr $.Lang "web_detail"}}</a><button class="btn danger small" type="submit" formaction="/aprs/sent/{{.ID}}/delete" onclick="return confirm({{printf "%q" (tr $.Lang "confirm_delete_aprs_message")}})">{{tr $.Lang "delete_button"}}</button></div></td>
+  </tr>
+  {{else}}
+  <tr><td colspan="7">{{tr $.Lang "web_no_aprs_sent"}}</td></tr>
+  {{end}}
+</table>
+<div class="bulk-bar"><button class="btn danger small" type="submit" data-aprs-delete-selected="sent" onclick="return confirm({{printf "%q" (tr .Lang "confirm_delete_aprs_selected")}})" disabled>{{tr .Lang "delete_selected"}}</button></div>
+</form>
+
+<h2>{{tr .Lang "aprs_send_message"}}</h2>
+<form class="stack card" method="post" action="/aprs/send">
+  <div class="cols"><div><label>{{tr .Lang "aprs_destination_callsign"}}</label><input name="destination" required></div><div><label>{{tr .Lang "aprs_destination_ssid"}}</label><input name="destination_ssid" maxlength="2" value="0"></div></div>
+  <div><label>{{tr .Lang "aprs_text"}}</label><textarea name="text"></textarea></div>
+  <button class="btn">{{tr .Lang "send_button"}}</button>
+</form>
+
+<h2>{{tr .Lang "aprs_enable_title"}}</h2>
+<section class="card">
+  <form method="post" action="/aprs/toggle" class="row"><label style="margin:0">{{tr .Lang "enable_aprs"}}: {{.User.Callsign}}</label><select name="enable_aprs" style="max-width:140px"><option value="false">false</option><option value="true" {{if .User.EnableAPRS}}selected{{end}}>true</option></select><button class="btn">{{tr .Lang "save_button"}}</button></form>
+  <p class="muted">{{tr .Lang "web_aprs_worker_note"}}</p>
+</section>
+{{template "layout_end" .}}
+{{end}}
+
+{{define "aprs_sent_detail"}}
+{{template "layout_start" .}}
+{{$m := .Data.Message}}{{$ack := ackBadge $m}}
+<div class="between"><h1>{{tr .Lang "aprs_sent_message_detail"}}</h1><div class="actions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a><form method="post" action="/aprs/sent/{{$m.ID}}/delete" onsubmit="return confirm({{printf "%q" (tr .Lang "confirm_delete_aprs_message")}})"><button class="btn danger" type="submit">{{tr .Lang "delete_button"}}</button></form></div></div>
+<section class="card"><dl class="detail-grid"><dt>{{tr .Lang "from"}}</dt><dd>{{$m.From}}</dd><dt>{{tr .Lang "aprs_destination_callsign"}}</dt><dd>{{$m.To}}</dd><dt>{{tr .Lang "at"}}</dt><dd>{{$m.At}}</dd><dt>{{tr .Lang "status"}}</dt><dd>{{aprsStatus .Lang $m.Status}}</dd><dt>{{tr .Lang "web_ack_status"}}</dt><dd><span class="badge {{$ack.Class}}">{{$ack.Icon}}</span> {{tr .Lang $ack.LabelKey}}</dd><dt>{{tr .Lang "aprs_acknowledged"}}</dt><dd>{{$m.Acked}}</dd><dt>{{tr .Lang "aprs_parts"}}</dt><dd>{{len $m.Parts}}</dd><dt>{{tr .Lang "aprs_text"}}</dt><dd>{{$m.Text}}</dd></dl></section>
+<h2>{{tr .Lang "aprs_part_statuses"}}</h2>
+<table><tr><th>#</th><th>{{tr .Lang "status"}}</th><th>{{tr .Lang "aprs_acknowledged"}}</th><th>{{tr .Lang "aprs_text"}}</th><th>ID</th><th>{{tr .Lang "web_detail"}}</th></tr>{{range $m.Parts}}<tr><td>{{.Number}}</td><td>{{aprsStatus $.Lang .Status}}</td><td>{{.Acked}}</td><td>{{.Text}}</td><td>{{.MessageID}}</td><td>{{.Detail}}</td></tr>{{else}}<tr><td colspan="6">{{tr $.Lang "web_no_parts"}}</td></tr>{{end}}</table>
+{{template "layout_end" .}}
+{{end}}
+
+{{define "aprs_received_detail"}}
+{{template "layout_start" .}}
+{{$m := .Data.Message}}{{$d := .Data.Detail}}
+<div class="between"><h1>{{tr .Lang "aprs_received_message_detail"}}</h1><div class="actions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a><a class="btn" href="/aprs/received/{{$m.ID}}/reply">{{tr .Lang "reply_button"}}</a><form method="post" action="/aprs/received/{{$m.ID}}/delete" onsubmit="return confirm({{printf "%q" (tr .Lang "confirm_delete_aprs_message")}})"><button class="btn danger" type="submit">{{tr .Lang "delete_button"}}</button></form></div></div>
+<section class="card"><dl class="detail-grid"><dt>{{tr .Lang "from"}}</dt><dd>{{$m.From}}</dd><dt>{{tr .Lang "aprs_destination_callsign"}}</dt><dd>{{$m.To}}</dd><dt>{{tr .Lang "at"}}</dt><dd>{{$m.At}}</dd><dt>{{tr .Lang "aprs_text"}}</dt><dd>{{$d.Text}}</dd></dl>{{if $d.Raw}}<hr><dl class="detail-grid"><dt>{{tr .Lang "aprs_raw_packet"}}</dt><dd class="pre">{{$d.Raw}}</dd></dl>{{end}}</section>
+{{template "layout_end" .}}
+{{end}}
+
+{{define "aprs_reply"}}
+{{template "layout_start" .}}
+{{$m := .Data.Message}}{{$d := .Data.Detail}}
+<div class="between"><h1>{{tr .Lang "web_reply"}}</h1><a class="btn secondary" href="/aprs/received/{{$m.ID}}">{{tr .Lang "web_back_to_aprs"}}</a></div>
+<section class="card"><div class="muted">{{tr .Lang "from"}} {{$m.From}} {{tr .Lang "at"}} {{$m.At}}</div><p class="pre">{{$d.Text}}</p></section>
+<form class="stack card" method="post" action="/aprs/received/{{$m.ID}}/reply">
+  <div class="cols"><div><label>{{tr .Lang "aprs_destination_callsign"}}</label><input name="destination" value="{{.Data.Destination}}" required></div><div><label>{{tr .Lang "aprs_destination_ssid"}}</label><input name="destination_ssid" maxlength="2" value="{{.Data.DestinationSSID}}"></div></div>
+  <div><label>{{tr .Lang "aprs_text"}}</label><textarea name="text"></textarea></div>
+  <div class="actions"><button class="btn" type="submit">{{tr .Lang "send_button"}}</button><a class="btn secondary" href="/aprs/received/{{$m.ID}}">{{tr .Lang "cancel_button"}}</a></div>
+</form>
+{{template "layout_end" .}}
+{{end}}
 
 {{define "admin_users"}}{{template "layout_start" .}}<h1>{{tr .Lang "web_admin_users"}}</h1><table><tr><th>{{tr .Lang "target_callsign"}}</th><th>{{tr .Lang "full_name"}}</th><th>{{tr .Lang "email"}}</th><th>{{tr .Lang "status"}}</th><th>{{tr .Lang "role"}}</th><th>{{tr .Lang "web_actions"}}</th></tr>{{range .Data}}<tr><td><strong>{{.Callsign}}</strong></td><td>{{.FullName}}</td><td>{{.Email}}</td><td>{{if .Disabled}}{{tr $.Lang "disabled"}}{{else}}{{tr $.Lang "enabled"}}{{end}}</td><td>{{if .IsSysop}}{{tr $.Lang "sysop_role"}}{{else}}{{tr $.Lang "user_role"}}{{end}}</td><td><form class="row" method="post" action="/admin/users/{{.Callsign}}"><select name="disabled"><option value="false">{{tr $.Lang "enabled"}}</option><option value="true" {{if .Disabled}}selected{{end}}>{{tr $.Lang "disabled"}}</option></select><select name="is_sysop"><option value="false">{{tr $.Lang "user_role"}}</option><option value="true" {{if .IsSysop}}selected{{end}}>{{tr $.Lang "sysop_role"}}</option></select><button class="btn secondary">{{tr $.Lang "save_button"}}</button></form></td></tr>{{end}}</table>{{template "layout_end" .}}{{end}}
 `
