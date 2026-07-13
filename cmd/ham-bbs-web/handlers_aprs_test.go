@@ -63,3 +63,31 @@ func TestComposeAPRSDestinationPreservesUserSSIDChoice(t *testing.T) {
 		t.Fatalf("composeAPRSDestination(empty callsign) = %q, want empty", got)
 	}
 }
+
+func TestReceivedAPRSDetailTextCleanup(t *testing.T) {
+	text := singleLineAPRSDetail(stripAPRSMessageID("one two\nthree{A12"))
+	if text != "one two three" {
+		t.Fatalf("clean received APRS text = %q, want %q", text, "one two three")
+	}
+	raw := singleLineAPRSDetail("raw1\nraw2")
+	if raw != "raw1 raw2" {
+		t.Fatalf("clean received APRS raw = %q, want %q", raw, "raw1 raw2")
+	}
+}
+
+func TestParseAPRSIDs(t *testing.T) {
+	got := parseAPRSIDs([]string{"3", "1", "3", "invalid", "0"})
+	want := []uint{3, 1}
+	if len(got) != len(want) {
+		t.Fatalf("parseAPRSIDs() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("parseAPRSIDs() = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestTemplatesParse(t *testing.T) {
+	parseTemplates(map[string]map[string]any{"en": {}})
+}

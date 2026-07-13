@@ -21,11 +21,7 @@ func (s *server) aprs(w http.ResponseWriter, r *http.Request, user *dbUser) {
 }
 
 func (s *server) aprsSentDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	id, _ := strconv.Atoi(r.PathValue("id"))
-	var msg dbAPRSSent
-	err := s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
-		Where("id = ? AND user_callsign = ?", id, user.Callsign).
-		First(&msg).Error
+	msg, err := s.findSentAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -34,14 +30,182 @@ func (s *server) aprsSentDetail(w http.ResponseWriter, r *http.Request, user *db
 }
 
 func (s *server) aprsReceivedDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	id, _ := strconv.Atoi(r.PathValue("id"))
-	var msg dbAPRSReceived
-	err := s.db.Where("id = ? AND user_callsign = ?", id, user.Callsign).First(&msg).Error
+	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	s.view(w, r, "aprs_received_detail", user, map[string]any{"Message": msg}, "", "")
+	detail := receivedAPRSDetail{
+		Text: singleLineAPRSDetail(stripAPRSMessageID(msg.Text)),
+		Raw:  singleLineAPRSDetail(msg.Raw),
+	}
+	s.view(w, r, "aprs_received_detail", user, map[string]any{"Message": msg, "Detail": detail}, "", "")
+}
+
+func (s *server) aprsReceivedReplyForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	destination, ssid := splitAPRSDestination(msg.From)
+	detail := receivedAPRSDetail{
+		Text: singleLineAPRSDetail(stripAPRSMessageID(msg.Text)),
+		Raw:  singleLineAPRSDetail(msg.Raw),
+	}
+	s.view(w, r, "aprs_reply", user, map[string]any{
+		"Message":         msg,
+		"Detail":          detail,
+		"Destination":     destination,
+		"DestinationSSID": ssid,
+	}, "", "")
+}
+
+func (s *server) aprsReceivedReply(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	destination := composeAPRSDestination(r.FormValue("destination"), r.FormValue("destination_ssid"))
+	text := r.FormValue("text")
+	sent, ok := s.sendAPRSMessage(user.Callsign, destination, text)
+	_ = s.addSentRecord(user.Callsign, sent)
+	s.logBBSAction(user.Callsign, "web_aprs_reply", "received_id=%d to=%q parts=%d ok=%t", msg.ID, destination, len(sent.Parts), ok)
+	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+}
+
+func (s *server) aprsSentDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	msg, err := s.findSentAPRS(r.PathValue("id"), user.Callsign)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := s.deleteSentAPRS(user.Callsign, []uint{msg.ID}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.logBBSAction(user.Callsign, "web_aprs_sent_delete", "to=%q at=%q", msg.To, msg.At)
+	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+}
+
+func (s *server) aprsSentBulkDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ids := parseAPRSIDs(r.Form["sent_ids"])
+	deleted, err := s.deleteSentAPRS(user.Callsign, ids)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.logBBSAction(user.Callsign, "web_aprs_sent_bulk_delete", "count=%d", deleted)
+	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+}
+
+func (s *server) aprsReceivedDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if _, err := s.deleteReceivedAPRS(user.Callsign, []uint{msg.ID}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.logBBSAction(user.Callsign, "web_aprs_received_delete", "from=%q at=%q", msg.From, msg.At)
+	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+}
+
+func (s *server) aprsReceivedBulkDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ids := parseAPRSIDs(r.Form["received_ids"])
+	deleted, err := s.deleteReceivedAPRS(user.Callsign, ids)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.logBBSAction(user.Callsign, "web_aprs_received_bulk_delete", "count=%d", deleted)
+	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+}
+
+func (s *server) deleteSentAPRS(callsign string, ids []uint) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	var deleted int64
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var rows []dbAPRSSent
+		if err := tx.Where("user_callsign = ? AND id IN ?", callsign, ids).Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		ownedIDs := make([]uint, 0, len(rows))
+		for _, row := range rows {
+			ownedIDs = append(ownedIDs, row.ID)
+		}
+		if err := tx.Delete(&dbAPRSSentPart{}, "sent_id IN ?", ownedIDs).Error; err != nil {
+			return err
+		}
+		result := tx.Where("user_callsign = ? AND id IN ?", callsign, ownedIDs).Delete(&dbAPRSSent{})
+		deleted = result.RowsAffected
+		return result.Error
+	})
+	return int(deleted), err
+}
+
+func (s *server) deleteReceivedAPRS(callsign string, ids []uint) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	result := s.db.Where("user_callsign = ? AND id IN ?", callsign, ids).Delete(&dbAPRSReceived{})
+	return int(result.RowsAffected), result.Error
+}
+
+func parseAPRSIDs(values []string) []uint {
+	seen := map[uint]bool{}
+	ids := make([]uint, 0, len(values))
+	for _, raw := range values {
+		id, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil || id == 0 || id > uint64(^uint(0)) {
+			continue
+		}
+		value := uint(id)
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		ids = append(ids, value)
+	}
+	return ids
+}
+
+func (s *server) findSentAPRS(rawID, callsign string) (dbAPRSSent, error) {
+	id, err := strconv.ParseUint(rawID, 10, 64)
+	if err != nil || id == 0 {
+		return dbAPRSSent{}, gorm.ErrRecordNotFound
+	}
+	var msg dbAPRSSent
+	err = s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
+		Where("id = ? AND user_callsign = ?", id, callsign).
+		First(&msg).Error
+	return msg, err
+}
+
+func (s *server) findReceivedAPRS(rawID, callsign string) (dbAPRSReceived, error) {
+	id, err := strconv.ParseUint(rawID, 10, 64)
+	if err != nil || id == 0 {
+		return dbAPRSReceived{}, gorm.ErrRecordNotFound
+	}
+	var msg dbAPRSReceived
+	err = s.db.Where("id = ? AND user_callsign = ?", id, callsign).First(&msg).Error
+	return msg, err
 }
 
 func (s *server) aprsToggle(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -387,6 +551,37 @@ func splitRunes(text string, limit int) []string {
 		runes = runes[n:]
 	}
 	return out
+}
+
+func singleLineAPRSDetail(text string) string {
+	return strings.Join(strings.Fields(strings.ReplaceAll(text, "\n", " ")), " ")
+}
+
+func stripAPRSMessageID(text string) string {
+	body, _ := splitAPRSMessageID(text)
+	return body
+}
+
+func splitAPRSMessageID(text string) (string, string) {
+	text = strings.TrimSpace(text)
+	idx := strings.LastIndex(text, "{")
+	if idx < 0 {
+		return text, ""
+	}
+	id := text[idx+1:]
+	if id == "" || len([]rune(id)) > 5 {
+		return text, ""
+	}
+	for _, r := range id {
+		if r < '0' || r > '9' {
+			if r < 'A' || r > 'Z' {
+				if r < 'a' || r > 'z' {
+					return text, ""
+				}
+			}
+		}
+	}
+	return strings.TrimSpace(text[:idx]), normalizeAPRSMessageID(id)
 }
 
 func maidenheadCenter(locator string) (float64, float64, error) {

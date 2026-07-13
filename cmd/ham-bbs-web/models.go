@@ -113,3 +113,8 @@ type ackBadge struct {
 	Class    string
 	LabelKey string
 }
+
+type receivedAPRSDetail struct {
+	Text string
+	Raw  string
+}
