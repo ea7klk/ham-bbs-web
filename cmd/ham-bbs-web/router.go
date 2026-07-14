@@ -12,6 +12,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /register", s.registerForm)
 	mux.HandleFunc("POST /register", s.registerPost)
 	mux.HandleFunc("POST /logout", s.logoutPost)
+	mux.HandleFunc("POST /language", s.requireAuth(s.languagePost))
 	mux.HandleFunc("GET /profile", s.requireAuth(s.profileForm))
 	mux.HandleFunc("POST /profile", s.requireAuth(s.profilePost))
 	mux.HandleFunc("GET /directory", s.requireAuth(s.directory))
@@ -124,7 +125,7 @@ func (s *server) view(w http.ResponseWriter, r *http.Request, name string, user 
 	if user != nil && user.Language != "" {
 		lang = user.Language
 	}
-	vd := viewData{AppName: s.cfg.name, Location: s.cfg.location, Topic: s.cfg.topic, SysopName: s.cfg.sysopName, User: user, Lang: lang, Flash: msg, Error: errText, Data: data}
+	vd := viewData{AppName: s.cfg.name, Location: s.cfg.location, Topic: s.cfg.topic, SysopName: s.cfg.sysopName, Path: r.URL.Path, User: user, Lang: lang, Flash: msg, Error: errText, Data: data}
 	if user != nil {
 		vd.IsSysop = s.isSysop(user)
 	}

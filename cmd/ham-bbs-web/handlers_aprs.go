@@ -557,6 +557,10 @@ func singleLineAPRSDetail(text string) string {
 	return strings.Join(strings.Fields(strings.ReplaceAll(text, "\n", " ")), " ")
 }
 
+func aprsListText(value string) string {
+	return singleLineAPRSDetail(stripAPRSMessageID(value))
+}
+
 func stripAPRSMessageID(text string) string {
 	body, _ := splitAPRSMessageID(text)
 	return body

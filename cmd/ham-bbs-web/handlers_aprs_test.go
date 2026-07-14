@@ -75,6 +75,12 @@ func TestReceivedAPRSDetailTextCleanup(t *testing.T) {
 	}
 }
 
+func TestAPRSListTextIsSingleLine(t *testing.T) {
+	if got, want := aprsListText("one\ntwo{A12"), "one two"; got != want {
+		t.Fatalf("aprsListText() = %q, want %q", got, want)
+	}
+}
+
 func TestParseAPRSIDs(t *testing.T) {
 	got := parseAPRSIDs([]string{"3", "1", "3", "invalid", "0"})
 	want := []uint{3, 1}
