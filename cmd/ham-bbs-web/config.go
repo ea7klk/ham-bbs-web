@@ -63,6 +63,7 @@ type viewData struct {
 	Location  string
 	Topic     string
 	SysopName string
+	Path      string
 	User      *dbUser
 	IsSysop   bool
 	Lang      string

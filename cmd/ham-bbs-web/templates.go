@@ -7,9 +7,11 @@ import (
 
 func parseTemplates(text map[string]map[string]any) *template.Template {
 	funcs := template.FuncMap{
-		"tr":       func(lang, key string) string { return translation(text, lang, key) },
-		"langName": func(code string) string { return languages[code] },
-		"ackBadge": sentAckBadge,
+		"tr":              func(lang, key string) string { return translation(text, lang, key) },
+		"langName":        func(code string) string { return languages[code] },
+		"languageChoices": languageChoices,
+		"aprsListText":    aprsListText,
+		"ackBadge":        sentAckBadge,
 		"aprsStatus": func(lang, status string) string {
 			key := "aprs_sent_status_" + normalizeAPRSStatus(status)
 			value := translation(text, lang, key)
@@ -61,6 +63,9 @@ const templates = `
     nav { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     nav a, button.link { color:var(--ink); text-decoration:none; border:1px solid var(--line); background:#fff; padding:8px 10px; border-radius:6px; font:inherit; cursor:pointer; }
     nav a:hover, button.link:hover { border-color:var(--accent); color:var(--accent); }
+    .language-switcher { display:flex; align-items:center; gap:6px; margin:0; }
+    .language-switcher label { margin:0; white-space:nowrap; }
+    .language-switcher select { width:auto; min-width:118px; padding:8px 28px 8px 10px; }
     main { max-width:1180px; margin:0 auto; padding:22px 20px 48px; }
     h1 { font-size:28px; margin:0 0 18px; }
     h2 { font-size:18px; margin:24px 0 10px; }
@@ -91,6 +96,19 @@ const templates = `
     .bulk-bar { display:flex; justify-content:flex-end; margin-top:10px; }
     label.checkbox-label { display:inline-flex; align-items:center; gap:6px; margin:0; color:inherit; font-size:inherit; }
     input[type=checkbox] { width:auto; padding:0; }
+    .aprs-table { table-layout:fixed; }
+    .aprs-table th, .aprs-table td { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .aprs-table a.rowlink { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .aprs-table .selection-col { width:8%; }
+    .aprs-table .time-col { width:14%; }
+    .aprs-table .callsign-col { width:14%; }
+    .aprs-table .destination-col { width:15%; }
+    .aprs-table .message-col { width:34%; }
+    .aprs-table.sent-table .message-col { width:29%; }
+    .aprs-table .actions-col { width:15%; }
+    .aprs-table .ack-col { width:8%; }
+    .aprs-table .status-col { width:11%; }
+    .aprs-table .actions { flex-wrap:nowrap; }
     a.rowlink { color:var(--ink); text-decoration:none; font-weight:650; }
     a.rowlink:hover { color:var(--accent); text-decoration:underline; }
     table { width:100%; border-collapse:collapse; background:white; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
@@ -98,11 +116,11 @@ const templates = `
     th { font-size:13px; color:var(--muted); background:#fbfdfc; }
     .message { border-left:3px solid var(--accent); margin:12px 0; padding:12px 12px 12px 14px; background:white; border-radius:0 8px 8px 0; }
     .indent-1 { margin-left:24px; } .indent-2 { margin-left:48px; } .indent-3 { margin-left:72px; } .indent-4 { margin-left:96px; }
-    @media (max-width: 740px) { .top { align-items:flex-start; flex-direction:column; } nav a, button.link { padding:7px 8px; } table { display:block; overflow-x:auto; } .indent-1,.indent-2,.indent-3,.indent-4 { margin-left:12px; } }
+    @media (max-width: 740px) { .top { align-items:flex-start; flex-direction:column; } .language-switcher { align-self:flex-end; } nav a, button.link { padding:7px 8px; } table { display:block; overflow-x:auto; } .aprs-table { min-width:900px; } .indent-1,.indent-2,.indent-3,.indent-4 { margin-left:12px; } }
   </style>
 </head>
 <body>
-<header><div class="top"><div><div class="brand">{{.AppName}}</div><div class="sub">{{.Location}} - {{.Topic}}</div></div>{{if .User}}<nav><a href="/">{{tr .Lang "web_home"}}</a><a href="/bulletins">{{tr .Lang "menu_bulletins"}}</a><a href="/boards">{{tr .Lang "web_message_boards"}}</a><a href="/directory">{{tr .Lang "menu_directory"}}</a><a href="/aprs">APRS</a><a href="/profile">{{.User.Callsign}}</a>{{if .IsSysop}}<a href="/admin/users">{{tr .Lang "sysop"}}</a>{{end}}<form method="post" action="/logout"><button class="link">{{tr .Lang "web_logout"}}</button></form></nav>{{end}}</div></header>
+<header><div class="top"><div><div class="brand">{{.AppName}}</div><div class="sub">{{.Location}} - {{.Topic}}</div></div>{{if .User}}<nav><a href="/">{{tr .Lang "web_home"}}</a><a href="/bulletins">{{tr .Lang "menu_bulletins"}}</a><a href="/boards">{{tr .Lang "web_message_boards"}}</a><a href="/directory">{{tr .Lang "menu_directory"}}</a><a href="/aprs">APRS</a><a href="/profile">{{.User.Callsign}}</a>{{if .IsSysop}}<a href="/admin/users">{{tr .Lang "sysop"}}</a>{{end}}<form method="post" action="/logout"><button class="link">{{tr .Lang "web_logout"}}</button></form></nav><form class="language-switcher" method="post" action="/language"><label for="header-language">{{tr .Lang "language"}}</label><select id="header-language" name="language" onchange="this.form.submit()">{{range languageChoices}}<option value="{{.Code}}" {{selected $.Lang .Code}}>{{.Name}}</option>{{end}}</select><input type="hidden" name="return_to" value="{{.Path}}"></form>{{end}}</div></header>
 <main>
 {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
 {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
@@ -159,15 +177,15 @@ const templates = `
 
 <h2>{{tr .Lang "aprs_received_messages"}}</h2>
 <form method="post" action="/aprs/received/delete">
-<table>
-  <tr><th><label class="checkbox-label" for="aprs-select-all-received"><input type="checkbox" id="aprs-select-all-received" onchange="toggleAPRSSelection('received', this.checked)"><span>{{tr .Lang "select_all"}}</span></label></th><th>{{tr .Lang "at"}}</th><th>{{tr .Lang "from"}}</th><th>{{tr .Lang "aprs_destination_callsign"}}</th><th>{{tr .Lang "aprs_text"}}</th><th>{{tr .Lang "web_actions"}}</th></tr>
+<table class="aprs-table received-table">
+  <tr><th class="selection-col"><label class="checkbox-label" for="aprs-select-all-received"><input type="checkbox" id="aprs-select-all-received" onchange="toggleAPRSSelection('received', this.checked)"><span>{{tr .Lang "select_all"}}</span></label></th><th class="time-col">{{tr .Lang "at"}}</th><th class="callsign-col">{{tr .Lang "from"}}</th><th class="destination-col">{{tr .Lang "aprs_destination_callsign"}}</th><th class="message-col">{{tr .Lang "aprs_text"}}</th><th class="actions-col">{{tr .Lang "web_actions"}}</th></tr>
   {{range .Data.Received}}
   <tr>
     <td><input type="checkbox" name="received_ids" value="{{.ID}}" data-aprs-group="received" onchange="syncAPRSSelection('received')" aria-label="{{tr $.Lang "aprs_received_message_detail"}}"></td>
     <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.At}}</a></td>
     <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.From}}</a></td>
     <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.To}}</a></td>
-    <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{.Text}}</a></td>
+    <td><a class="rowlink" href="/aprs/received/{{.ID}}">{{aprsListText .Text}}</a></td>
     <td><div class="actions"><a class="btn secondary small" href="/aprs/received/{{.ID}}">{{tr $.Lang "web_detail"}}</a><button class="btn danger small" type="submit" formaction="/aprs/received/{{.ID}}/delete" onclick="return confirm({{printf "%q" (tr $.Lang "confirm_delete_aprs_message")}})">{{tr $.Lang "delete_button"}}</button></div></td>
   </tr>
   {{else}}
@@ -179,8 +197,8 @@ const templates = `
 
 <h2>{{tr .Lang "aprs_sent_messages"}}</h2>
 <form method="post" action="/aprs/sent/delete">
-<table>
-  <tr><th><label class="checkbox-label" for="aprs-select-all-sent"><input type="checkbox" id="aprs-select-all-sent" onchange="toggleAPRSSelection('sent', this.checked)"><span>{{tr .Lang "select_all"}}</span></label></th><th>{{tr .Lang "web_ack_status"}}</th><th>{{tr .Lang "at"}}</th><th>{{tr .Lang "aprs_destination_callsign"}}</th><th>{{tr .Lang "status"}}</th><th>{{tr .Lang "aprs_text"}}</th><th>{{tr .Lang "web_actions"}}</th></tr>
+<table class="aprs-table sent-table">
+  <tr><th class="selection-col"><label class="checkbox-label" for="aprs-select-all-sent"><input type="checkbox" id="aprs-select-all-sent" onchange="toggleAPRSSelection('sent', this.checked)"><span>{{tr .Lang "select_all"}}</span></label></th><th class="ack-col">{{tr .Lang "web_ack_status"}}</th><th class="time-col">{{tr .Lang "at"}}</th><th class="destination-col">{{tr .Lang "aprs_destination_callsign"}}</th><th class="status-col">{{tr .Lang "status"}}</th><th class="message-col">{{tr .Lang "aprs_text"}}</th><th class="actions-col">{{tr .Lang "web_actions"}}</th></tr>
   {{range .Data.Sent}}
   {{$ack := ackBadge .}}
   <tr>
@@ -189,7 +207,7 @@ const templates = `
     <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{.At}}</a></td>
     <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{.To}}</a></td>
     <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{aprsStatus $.Lang .Status}}</a></td>
-    <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{.Text}}</a></td>
+    <td><a class="rowlink" href="/aprs/sent/{{.ID}}">{{aprsListText .Text}}</a></td>
     <td><div class="actions"><a class="btn secondary small" href="/aprs/sent/{{.ID}}">{{tr $.Lang "web_detail"}}</a><button class="btn danger small" type="submit" formaction="/aprs/sent/{{.ID}}/delete" onclick="return confirm({{printf "%q" (tr $.Lang "confirm_delete_aprs_message")}})">{{tr $.Lang "delete_button"}}</button></div></td>
   </tr>
   {{else}}

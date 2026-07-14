@@ -71,6 +71,24 @@ func (s *server) logoutPost(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+func (s *server) languagePost(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	language := strings.TrimSpace(r.FormValue("language"))
+	if _, ok := languages[language]; !ok {
+		http.Error(w, s.t(user.Language, "web_invalid_language"), http.StatusBadRequest)
+		return
+	}
+	if err := s.db.Model(&dbUser{}).Where("callsign = ?", user.Callsign).Update("language", language).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.logBBSAction(user.Callsign, "web_language_update", "language=%q", language)
+	returnTo := strings.TrimSpace(r.FormValue("return_to"))
+	if returnTo == "" || !strings.HasPrefix(returnTo, "/") || strings.HasPrefix(returnTo, "//") {
+		returnTo = "/"
+	}
+	http.Redirect(w, r, returnTo, http.StatusSeeOther)
+}
+
 func (s *server) home(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	var bulletinCount, boardCount, userCount, receivedCount int64
 	s.db.Model(&dbBulletin{}).Count(&bulletinCount)
