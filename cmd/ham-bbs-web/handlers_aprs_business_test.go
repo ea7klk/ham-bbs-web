@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"regexp"
@@ -243,6 +244,12 @@ func TestAPRSProtocolAndEmptyMessageSending(t *testing.T) {
 	if got := <-lines; len(got) != 2 || !strings.Contains(got[1], "hello{A12") {
 		t.Fatalf("sendAPRSParts server lines = %q", got)
 	}
+	port, lines = startTestAPRSServer(t, "# logresp EA7KLK-0 unverified\r\n", 0)
+	s.cfg.aprsPort = port
+	if parts, ok := s.sendAPRSParts("EA7KLK-0", aprsPasscode("EA7KLK-0"), "EA1ABC-9", []string{"hello"}, nil); ok || len(parts) != 1 || parts[0].Status != "failed" {
+		t.Fatalf("rejected APRS login = %#v, ok=%t", parts, ok)
+	}
+	<-lines
 
 	s.cfg.aprsPort = 1
 	failed, ok := s.sendAPRSMessage("EA7KLK", "EA1ABC", "hello")
@@ -274,6 +281,10 @@ func TestAPRSBeaconAndLoginBeacon(t *testing.T) {
 	if err := s.sendAPRSBeacon("bad call", 0, 0, "bad"); err == nil {
 		t.Fatal("invalid beacon source was accepted")
 	}
+	s.cfg.aprsPort = 1
+	if err := s.sendAPRSBeacon("EA7KLK", 0, 0, "unreachable"); err == nil {
+		t.Fatal("unreachable beacon was accepted")
+	}
 
 	port, lines = startTestAPRSServer(t, response, 1)
 	s.cfg.aprsPort = port
@@ -285,6 +296,7 @@ func TestAPRSBeaconAndLoginBeacon(t *testing.T) {
 	s.sendLoginAPRSBeacon("EA7KLK", dbUser{EnableAPRS: false, Maidenhead: "IM77AH"})
 	s.sendLoginAPRSBeacon("EA7KLK", dbUser{EnableAPRS: true})
 	s.sendLoginAPRSBeacon("EA7KLK", dbUser{EnableAPRS: true, Maidenhead: "ZZ99"})
+	s.sendLoginAPRSBeacon("bad call", dbUser{EnableAPRS: true, Maidenhead: "IM77AH"})
 }
 
 func TestAPRSLoginResponsesAndPacketWriter(t *testing.T) {
@@ -406,8 +418,20 @@ func TestAPRSHandlersAndOwnership(t *testing.T) {
 	if err := s.db.Create(&received).Error; err != nil {
 		t.Fatal(err)
 	}
-	if got := invokeUserHandler(s.aprs, formRequest(http.MethodGet, "/aprs", nil), user); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "EA1ABC-7") {
-		t.Fatalf("aprs page = %d %q", got.Code, got.Body.String())
+	if got := invokeUserHandler(s.aprs, formRequest(http.MethodGet, "/aprs", nil), user); got.Code != http.StatusOK || !strings.Contains(got.Body.String(), "/aprs/received") {
+		t.Fatalf("aprs overview = %d %q", got.Code, got.Body.String())
+	}
+	sentPage := invokeUserHandler(s.aprsSent, formRequest(http.MethodGet, "/aprs/sent", nil), user)
+	if sentPage.Code != http.StatusOK || !strings.Contains(sentPage.Body.String(), "hello") {
+		t.Fatalf("sent APRS page = %d %q", sentPage.Code, sentPage.Body.String())
+	}
+	receivedPage := invokeUserHandler(s.aprsReceived, formRequest(http.MethodGet, "/aprs/received", nil), user)
+	if receivedPage.Code != http.StatusOK || !strings.Contains(receivedPage.Body.String(), "reply") {
+		t.Fatalf("received APRS page = %d %q", receivedPage.Code, receivedPage.Body.String())
+	}
+	sendForm := invokeUserHandler(s.aprsSendForm, formRequest(http.MethodGet, "/aprs/send", nil), user)
+	if sendForm.Code != http.StatusOK || !strings.Contains(sendForm.Body.String(), "/aprs/toggle") {
+		t.Fatalf("APRS send form = %d %q", sendForm.Code, sendForm.Body.String())
 	}
 	sentDetail := invokeUserHandler(s.aprsSentDetail, setPathValue(formRequest(http.MethodGet, "/aprs/sent/1", nil), "id", strconv.Itoa(int(sent.ID))), user)
 	if sentDetail.Code != http.StatusOK || !strings.Contains(sentDetail.Body.String(), "hello") {
@@ -446,6 +470,16 @@ func TestAPRSHandlersAndOwnership(t *testing.T) {
 	if got := invokeUserHandler(s.aprsReceivedReply, setPathValue(formRequest(http.MethodPost, "/aprs/received/1/reply", url.Values{"destination": {""}, "destination_ssid": {"0"}, "text": {"reply"}}), "id", strconv.Itoa(int(received.ID))), user); got.Code != http.StatusSeeOther {
 		t.Fatalf("received reply status = %d", got.Code)
 	}
+	badForm := httptest.NewRequest(http.MethodPost, "/aprs/sent/delete", strings.NewReader("%zz"))
+	badForm.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if got := invokeUserHandler(s.aprsSentBulkDelete, badForm, user); got.Code != http.StatusBadRequest {
+		t.Fatalf("malformed sent bulk form status = %d", got.Code)
+	}
+	badReceivedForm := httptest.NewRequest(http.MethodPost, "/aprs/received/delete", strings.NewReader("%zz"))
+	badReceivedForm.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if got := invokeUserHandler(s.aprsReceivedBulkDelete, badReceivedForm, user); got.Code != http.StatusBadRequest {
+		t.Fatalf("malformed received bulk form status = %d", got.Code)
+	}
 
 	bulkSent := dbAPRSSent{UserCallsign: user.Callsign, Position: 2, To: "EA2XYZ", Text: "bulk"}
 	if err := s.db.Create(&bulkSent).Error; err != nil {
@@ -456,13 +490,22 @@ func TestAPRSHandlersAndOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	bulkDelete := invokeUserHandler(s.aprsSentBulkDelete, formRequest(http.MethodPost, "/aprs/sent/delete", url.Values{"sent_ids": {strconv.Itoa(int(bulkSent.ID)), "bad", "0", strconv.Itoa(int(bulkSent.ID))}}), user)
-	assertRedirect(t, bulkDelete, "/aprs")
+	assertRedirect(t, bulkDelete, "/aprs/sent")
 	bulkReceivedDelete := invokeUserHandler(s.aprsReceivedBulkDelete, formRequest(http.MethodPost, "/aprs/received/delete", url.Values{"received_ids": {strconv.Itoa(int(bulkReceived.ID))}}), user)
-	assertRedirect(t, bulkReceivedDelete, "/aprs")
+	assertRedirect(t, bulkReceivedDelete, "/aprs/received")
 	remainingSent := invokeUserHandler(s.aprsSentDelete, setPathValue(formRequest(http.MethodPost, "/aprs/sent/1/delete", nil), "id", strconv.Itoa(int(sent.ID))), user)
-	assertRedirect(t, remainingSent, "/aprs")
+	assertRedirect(t, remainingSent, "/aprs/sent")
 	remainingReceived := invokeUserHandler(s.aprsReceivedDelete, setPathValue(formRequest(http.MethodPost, "/aprs/received/1/delete", nil), "id", strconv.Itoa(int(received.ID))), user)
-	assertRedirect(t, remainingReceived, "/aprs")
+	assertRedirect(t, remainingReceived, "/aprs/received")
+	if got := invokeUserHandler(s.aprsSentDelete, setPathValue(formRequest(http.MethodPost, "/aprs/sent/1/delete", nil), "id", strconv.Itoa(int(sent.ID))), user); got.Code != http.StatusNotFound {
+		t.Fatalf("missing sent delete status = %d", got.Code)
+	}
+	if got := invokeUserHandler(s.aprsReceivedDelete, setPathValue(formRequest(http.MethodPost, "/aprs/received/1/delete", nil), "id", strconv.Itoa(int(received.ID))), user); got.Code != http.StatusNotFound {
+		t.Fatalf("missing received delete status = %d", got.Code)
+	}
+	if got := invokeUserHandler(s.aprsReceivedReply, setPathValue(formRequest(http.MethodPost, "/aprs/received/1/reply", nil), "id", strconv.Itoa(int(received.ID))), user); got.Code != http.StatusNotFound {
+		t.Fatalf("missing received reply status = %d", got.Code)
+	}
 }
 
 func TestAPRSLogOutput(t *testing.T) {

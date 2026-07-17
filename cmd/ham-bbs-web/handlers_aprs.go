@@ -12,12 +12,112 @@ import (
 	"time"
 )
 
+const defaultAPRSPageSize = 10
+
+var aprsPageSizes = []int{10, 25, 50}
+
 func (s *server) aprs(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	var sent []dbAPRSSent
-	var received []dbAPRSReceived
-	s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).Where("user_callsign = ?", user.Callsign).Order("position DESC, id DESC").Limit(20).Find(&sent)
-	s.db.Where("user_callsign = ?", user.Callsign).Order("position DESC, id DESC").Limit(50).Find(&received)
-	s.view(w, r, "aprs", user, map[string]any{"Sent": sent, "Received": received}, "", "")
+	_, sentPagination := s.sentAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/sent")
+	_, receivedPagination := s.receivedAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/received")
+	s.view(w, r, "aprs", user, aprsOverviewView{Sent: sentPagination, Received: receivedPagination}, "", "")
+}
+
+func (s *server) aprsSent(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	page, perPage := parseAPRSPage(r)
+	messages, pagination := s.sentAPRSPage(user.Callsign, page, perPage, "/aprs/sent")
+	s.view(w, r, "aprs_sent", user, aprsSentPageView{Lang: user.Language, Rows: messages, Pagination: pagination}, "", "")
+}
+
+func (s *server) aprsReceived(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	page, perPage := parseAPRSPage(r)
+	messages, pagination := s.receivedAPRSPage(user.Callsign, page, perPage, "/aprs/received")
+	s.view(w, r, "aprs_received", user, aprsReceivedPageView{Lang: user.Language, Rows: messages, Pagination: pagination}, "", "")
+}
+
+func (s *server) aprsSendForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	s.view(w, r, "aprs_send", user, nil, "", "")
+}
+
+func parseAPRSPage(r *http.Request) (int, int) {
+	page := 1
+	if value, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && value > 0 {
+		page = value
+	}
+	perPage := defaultAPRSPageSize
+	if value, err := strconv.Atoi(r.URL.Query().Get("per_page")); err == nil {
+		for _, allowed := range aprsPageSizes {
+			if value == allowed {
+				perPage = value
+				break
+			}
+		}
+	}
+	return page, perPage
+}
+
+func (s *server) sentAPRSPage(callsign string, page, perPage int, path string) ([]dbAPRSSent, aprsPagination) {
+	callsign = normalizeCallsign(callsign)
+	var total int64
+	s.db.Model(&dbAPRSSent{}).Where("user_callsign = ?", callsign).Count(&total)
+	pagination := newAPRSPagination(path, page, perPage, total)
+	var rows []dbAPRSSent
+	s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
+		Where("user_callsign = ?", callsign).
+		Order("position DESC, id DESC").
+		Offset((pagination.Page - 1) * pagination.PerPage).
+		Limit(pagination.PerPage).
+		Find(&rows)
+	return rows, pagination
+}
+
+func (s *server) receivedAPRSPage(callsign string, page, perPage int, path string) ([]dbAPRSReceived, aprsPagination) {
+	callsign = normalizeCallsign(callsign)
+	var total int64
+	s.db.Model(&dbAPRSReceived{}).Where("user_callsign = ?", callsign).Count(&total)
+	pagination := newAPRSPagination(path, page, perPage, total)
+	var rows []dbAPRSReceived
+	s.db.Where("user_callsign = ?", callsign).
+		Order("position DESC, id DESC").
+		Offset((pagination.Page - 1) * pagination.PerPage).
+		Limit(pagination.PerPage).
+		Find(&rows)
+	return rows, pagination
+}
+
+func newAPRSPagination(path string, page, perPage int, total int64) aprsPagination {
+	if perPage < 1 {
+		perPage = defaultAPRSPageSize
+	}
+	pages := int((total + int64(perPage) - 1) / int64(perPage))
+	if pages < 1 {
+		pages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > pages {
+		page = pages
+	}
+	pagination := aprsPagination{
+		Page:        page,
+		PerPage:     perPage,
+		Total:       total,
+		Pages:       pages,
+		PageSizes:   aprsPageSizes,
+		HasPrevious: page > 1,
+		HasNext:     page < pages,
+	}
+	if pagination.HasPrevious {
+		pagination.PreviousURL = aprsPageURL(path, page-1, perPage)
+	}
+	if pagination.HasNext {
+		pagination.NextURL = aprsPageURL(path, page+1, perPage)
+	}
+	return pagination
+}
+
+func aprsPageURL(path string, page, perPage int) string {
+	return fmt.Sprintf("%s?page=%d&per_page=%d", path, page, perPage)
 }
 
 func (s *server) aprsSentDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -72,7 +172,7 @@ func (s *server) aprsReceivedReply(w http.ResponseWriter, r *http.Request, user 
 	sent, ok := s.sendAPRSMessage(user.Callsign, destination, text)
 	_ = s.addSentRecord(user.Callsign, sent)
 	s.logBBSAction(user.Callsign, "web_aprs_reply", "received_id=%d to=%q parts=%d ok=%t", msg.ID, destination, len(sent.Parts), ok)
-	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+	http.Redirect(w, r, "/aprs/received", http.StatusSeeOther)
 }
 
 func (s *server) aprsSentDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -86,7 +186,7 @@ func (s *server) aprsSentDelete(w http.ResponseWriter, r *http.Request, user *db
 		return
 	}
 	s.logBBSAction(user.Callsign, "web_aprs_sent_delete", "to=%q at=%q", msg.To, msg.At)
-	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+	http.Redirect(w, r, "/aprs/sent", http.StatusSeeOther)
 }
 
 func (s *server) aprsSentBulkDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -101,7 +201,7 @@ func (s *server) aprsSentBulkDelete(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	s.logBBSAction(user.Callsign, "web_aprs_sent_bulk_delete", "count=%d", deleted)
-	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+	http.Redirect(w, r, "/aprs/sent", http.StatusSeeOther)
 }
 
 func (s *server) aprsReceivedDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -115,7 +215,7 @@ func (s *server) aprsReceivedDelete(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	s.logBBSAction(user.Callsign, "web_aprs_received_delete", "from=%q at=%q", msg.From, msg.At)
-	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+	http.Redirect(w, r, "/aprs/received", http.StatusSeeOther)
 }
 
 func (s *server) aprsReceivedBulkDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -130,7 +230,7 @@ func (s *server) aprsReceivedBulkDelete(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	s.logBBSAction(user.Callsign, "web_aprs_received_bulk_delete", "count=%d", deleted)
-	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+	http.Redirect(w, r, "/aprs/received", http.StatusSeeOther)
 }
 
 func (s *server) deleteSentAPRS(callsign string, ids []uint) (int, error) {
@@ -212,7 +312,7 @@ func (s *server) aprsToggle(w http.ResponseWriter, r *http.Request, user *dbUser
 	enabled := r.FormValue("enable_aprs") == "true"
 	s.db.Model(user).Updates(map[string]any{"enable_aprs": enabled, "last_seen": now()})
 	s.logBBSAction(user.Callsign, "web_aprs_toggle", "enabled=%t", enabled)
-	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+	http.Redirect(w, r, "/aprs/send", http.StatusSeeOther)
 }
 
 func (s *server) aprsSend(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -221,7 +321,7 @@ func (s *server) aprsSend(w http.ResponseWriter, r *http.Request, user *dbUser) 
 	sent, ok := s.sendAPRSMessage(user.Callsign, destination, text)
 	_ = s.addSentRecord(user.Callsign, sent)
 	s.logBBSAction(user.Callsign, "web_aprs_send", "to=%q parts=%d ok=%t", destination, len(sent.Parts), ok)
-	http.Redirect(w, r, "/aprs", http.StatusSeeOther)
+	http.Redirect(w, r, "/aprs/send", http.StatusSeeOther)
 }
 
 func (s *server) addSentRecord(callsign string, sent sentAPRS) error {
@@ -555,6 +655,18 @@ func splitRunes(text string, limit int) []string {
 
 func singleLineAPRSDetail(text string) string {
 	return strings.Join(strings.Fields(strings.ReplaceAll(text, "\n", " ")), " ")
+}
+
+func formatAPRSDateTime(value string) aprsTimestamp {
+	parts := strings.Fields(strings.TrimSpace(value))
+	if len(parts) == 0 {
+		return aprsTimestamp{}
+	}
+	result := aprsTimestamp{Date: parts[0]}
+	if len(parts) > 1 {
+		result.Time = strings.Join(parts[1:], " ")
+	}
+	return result
 }
 
 func aprsListText(value string) string {
