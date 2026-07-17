@@ -118,3 +118,37 @@ type receivedAPRSDetail struct {
 	Text string
 	Raw  string
 }
+
+type aprsTimestamp struct {
+	Date string
+	Time string
+}
+
+type aprsPagination struct {
+	Page        int
+	PerPage     int
+	Total       int64
+	Pages       int
+	PageSizes   []int
+	HasPrevious bool
+	HasNext     bool
+	PreviousURL string
+	NextURL     string
+}
+
+type aprsOverviewView struct {
+	Sent     aprsPagination
+	Received aprsPagination
+}
+
+type aprsSentPageView struct {
+	Lang       string
+	Rows       []dbAPRSSent
+	Pagination aprsPagination
+}
+
+type aprsReceivedPageView struct {
+	Lang       string
+	Rows       []dbAPRSReceived
+	Pagination aprsPagination
+}
