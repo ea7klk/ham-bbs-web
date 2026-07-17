@@ -14,7 +14,6 @@ on:
       - closed
   release:
     types:
-      - created
       - published
 
 permissions:
@@ -115,10 +114,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Restart bbs
+    name: Deploy BBS Web
     runs-on: self-hosted
     needs: build
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' && github.event.action == 'published'
     steps:
       - name: Restart bbs-web stack
         working-directory: /opt/stacks/ham-bbs
