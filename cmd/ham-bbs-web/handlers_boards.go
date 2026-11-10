@@ -178,28 +178,6 @@ func (s *server) nextMessagePosition(boardID string, parentID *uint) int {
 	return maxPos + 1
 }
 
-func (s *server) messageTree(boardID string) []messageNode {
-	var rows []dbMessage
-	s.db.Where("board_id = ?", boardID).Order("parent_id, position, id").Find(&rows)
-	byParent := map[uint][]dbMessage{}
-	for _, row := range rows {
-		parent := uint(0)
-		if row.ParentID != nil {
-			parent = *row.ParentID
-		}
-		byParent[parent] = append(byParent[parent], row)
-	}
-	var build func(uint, int) []messageNode
-	build = func(parent uint, depth int) []messageNode {
-		out := []messageNode{}
-		for _, row := range byParent[parent] {
-			out = append(out, messageNode{Row: row, Depth: depth, Replies: build(row.ID, depth+1)})
-		}
-		return out
-	}
-	return build(0, 0)
-}
-
 func (s *server) deleteMessageTree(id uint) {
 	var children []dbMessage
 	s.db.Where("parent_id = ?", id).Find(&children)
