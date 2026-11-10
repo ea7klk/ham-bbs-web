@@ -98,10 +98,6 @@ func (s *server) currentUser(r *http.Request) (*dbUser, error) {
 	if user.Disabled {
 		return nil, errUnauthorized
 	}
-	if s.cfg.sysops[user.Callsign] && !user.IsSysop {
-		s.db.Model(&user).Update("is_sysop", true)
-		user.IsSysop = true
-	}
 	return &user, nil
 }
 

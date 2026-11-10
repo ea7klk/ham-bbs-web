@@ -188,9 +188,20 @@ func TestAuthAuxiliaryHandlersAndSessions(t *testing.T) {
 	}
 	user.Disabled = false
 	s.db.Save(user)
+	// The configured list is a bootstrap grant, so the session path must not
+	// promote a callsign by itself; the startup bootstrap does that explicitly.
 	s.cfg.sysops[user.Callsign] = true
-	if _, err := s.currentUser(request); err != nil || !userFromDBIsSysop(t, s, user.Callsign) {
-		t.Fatalf("configured sysop was not promoted: %v", err)
+	if _, err := s.currentUser(request); err != nil {
+		t.Fatalf("currentUser() error = %v", err)
+	}
+	if userFromDBIsSysop(t, s, user.Callsign) {
+		t.Fatal("currentUser() promoted a configured callsign without a bootstrap")
+	}
+	if promoted := s.applyConfiguredSysops(); len(promoted) != 1 || promoted[0] != user.Callsign {
+		t.Fatalf("applyConfiguredSysops() = %#v", promoted)
+	}
+	if !userFromDBIsSysop(t, s, user.Callsign) {
+		t.Fatal("bootstrap sysop was not stored")
 	}
 
 	logout := invokeHandler(s.logoutPost, request)

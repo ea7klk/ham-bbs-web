@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -82,8 +83,61 @@ type viewData struct {
 	Data      any
 }
 
+// storedActiveSysops counts enabled accounts that hold the sysop role in the
+// database, rather than in a snapshot read earlier.
+func (s *server) storedActiveSysops() (int64, error) {
+	var count int64
+	err := s.db.Model(&dbUser{}).Where("is_sysop = ? AND disabled = ?", true, false).Count(&count).Error
+	return count, err
+}
+
+// isBootstrapSysop reports whether callsign may be granted sysop because it is
+// listed in BBS_SYSOPS and the deployment has no active sysop yet. It fails
+// closed: if the count cannot be read, no role is granted.
+func (s *server) isBootstrapSysop(callsign string) bool {
+	if !s.cfg.sysops[normalizeCallsign(callsign)] {
+		return false
+	}
+	count, err := s.storedActiveSysops()
+	if err != nil {
+		return false
+	}
+	return count == 0
+}
+
+// applyConfiguredSysops promotes existing accounts listed in BBS_SYSOPS only
+// while the database has no active sysop, and returns the callsigns it changed.
+// Once a sysop exists the configured list has no authority, so a configured
+// callsign can be demoted like any other.
+func (s *server) applyConfiguredSysops() []string {
+	count, err := s.storedActiveSysops()
+	if err != nil || count > 0 {
+		return nil
+	}
+	changed := []string{}
+	for callsign := range s.cfg.sysops {
+		var users []dbUser
+		if err := s.db.Where("callsign = ?", callsign).Limit(1).Find(&users).Error; err != nil {
+			continue
+		}
+		if len(users) == 0 || users[0].IsSysop {
+			continue
+		}
+		if err := s.db.Model(&dbUser{}).Where("callsign = ?", callsign).Update("is_sysop", true).Error; err != nil {
+			continue
+		}
+		changed = append(changed, callsign)
+	}
+	sort.Strings(changed)
+	return changed
+}
+
+// isSysop answers from the stored account alone. BBS_SYSOPS is deliberately not
+// consulted here: it is a bootstrap mechanism, used once to grant the first
+// sysop, and has no authority afterwards. This mirrors the classic SSH BBS
+// (simple-ham-bbs, bbs/cmd/bbs/storage.go).
 func (s *server) isSysop(user *dbUser) bool {
-	return user != nil && (user.IsSysop || s.cfg.sysops[user.Callsign])
+	return user != nil && user.IsSysop
 }
 
 func newServer() (*server, error) {
@@ -118,6 +172,9 @@ func newServer() (*server, error) {
 	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle()}
 	if err := app.seedDefaultData(); err != nil {
 		return nil, err
+	}
+	for _, callsign := range app.applyConfiguredSysops() {
+		app.logBBSAction("system", "web_sysop_bootstrap", "callsign=%q", callsign)
 	}
 	return app, nil
 }

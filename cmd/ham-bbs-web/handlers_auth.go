@@ -70,7 +70,9 @@ func (s *server) registerPost(w http.ResponseWriter, r *http.Request) {
 	}
 	user.FirstSeen = now()
 	user.LastSeen = now()
-	user.IsSysop = s.cfg.sysops[user.Callsign]
+	// BBS_SYSOPS is a bootstrap grant: it applies only while no enabled sysop
+	// exists, so a configured callsign registered later gets a plain account.
+	user.IsSysop = s.isBootstrapSysop(user.Callsign)
 	if err := s.db.Create(&user).Error; err != nil {
 		s.view(w, r, "register", nil, map[string]any{"Callsign": callsign, "Languages": languageChoices(), "User": user}, "", err.Error())
 		return
@@ -125,7 +127,7 @@ func (s *server) profilePost(w http.ResponseWriter, r *http.Request, user *dbUse
 	updated.Callsign = user.Callsign
 	updated.FirstSeen = user.FirstSeen
 	updated.LastSeen = now()
-	updated.IsSysop = user.IsSysop || s.cfg.sysops[user.Callsign]
+	updated.IsSysop = user.IsSysop
 	updated.Disabled = user.Disabled
 	if r.FormValue("new_password") == "" {
 		updated.PasswordHash = user.PasswordHash

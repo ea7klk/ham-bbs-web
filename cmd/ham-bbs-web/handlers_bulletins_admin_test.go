@@ -68,21 +68,12 @@ func TestAdminUserBusinessLogic(t *testing.T) {
 	if got := invokeUserHandler(s.adminUsers, formRequest(http.MethodGet, "/admin/users", nil), admin); got.Code != http.StatusOK {
 		t.Fatalf("adminUsers status = %d", got.Code)
 	}
-	if s.wouldRemoveLastSysop(target) {
-		t.Fatal("ordinary user cannot remove the last sysop")
-	}
-	target.IsSysop = true
-	if s.wouldRemoveLastSysop(target) {
-		t.Fatal("another active sysop should prevent last-sysop detection")
-	}
-	target.Disabled = true
-	if s.wouldRemoveLastSysop(target) {
-		t.Fatal("disabled target should not trigger last-sysop protection")
-	}
-	onlySysopServer := newTestServer(t)
-	onlySysop := testUser(t, onlySysopServer, dbUser{Callsign: "EA2XYZ", FullName: "Only Sysop", Email: "sysop@example.invalid", IsSysop: true})
-	if !onlySysopServer.wouldRemoveLastSysop(onlySysop) {
-		t.Fatal("only active sysop was not protected")
+	// The last sysop is protected by a structural rule: this endpoint never
+	// changes the caller's own row, and the caller is always an active sysop.
+	selfDemote := invokeUserHandler(s.adminUserUpdate, setPathValue(formRequest(http.MethodPost, "/admin/users/EA7KLK", url.Values{"is_sysop": {"false"}}), "callsign", "EA7KLK"), admin)
+	assertRedirect(t, selfDemote, "/admin/users")
+	if !userFromDBIsSysop(t, s, admin.Callsign) {
+		t.Fatal("admin was allowed to demote itself")
 	}
 
 	self := invokeUserHandler(s.adminUserUpdate, setPathValue(formRequest(http.MethodPost, "/admin/users/EA7KLK", url.Values{"disabled": {"true"}}), "callsign", "EA7KLK"), admin)

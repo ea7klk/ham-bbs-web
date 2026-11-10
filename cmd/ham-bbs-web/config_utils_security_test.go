@@ -91,9 +91,14 @@ func TestConfigAndTranslations(t *testing.T) {
 	if s.isSysop(&dbUser{Callsign: "EA7KLK"}) {
 		t.Fatal("unconfigured user must not be a sysop")
 	}
+	// BBS_SYSOPS is a bootstrap grant only: the request path answers from the
+	// stored row, never from the configured list.
 	s.cfg.sysops = map[string]bool{"EA7KLK": true}
-	if !s.isSysop(&dbUser{Callsign: "EA7KLK"}) {
-		t.Fatal("configured sysop was not recognized")
+	if s.isSysop(&dbUser{Callsign: "EA7KLK"}) {
+		t.Fatal("configured callsign was granted sysop on the request path")
+	}
+	if !s.isSysop(&dbUser{Callsign: "EA7KLK", IsSysop: true}) {
+		t.Fatal("stored sysop was not recognized")
 	}
 
 	t.Run("readJSON", func(t *testing.T) {
