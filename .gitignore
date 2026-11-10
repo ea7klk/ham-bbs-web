@@ -22,6 +22,7 @@ temp/
 
 # Go build and test artifacts
 /ham-bbs-web
+cmd/ham-bbs-web/ham-bbs-web
 /bin/
 /dist/
 /build/
