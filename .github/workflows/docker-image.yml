@@ -97,6 +97,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: tests
+    # `packages: write` is what lets the job's GITHUB_TOKEN push to GHCR; the
+    # workflow default is contents:read only.
+    permissions:
+      contents: read
+      packages: write
     env:
       IMAGE_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}
     outputs:
