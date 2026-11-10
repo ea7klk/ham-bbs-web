@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func (s *server) loginForm(w http.ResponseWriter, r *http.Request) {
@@ -18,21 +19,34 @@ func (s *server) loginPost(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/register?callsign="+callsign, http.StatusSeeOther)
 		return
 	}
+	key := authThrottleKey(r, user.Callsign)
+	if wait := s.throttle.lockedFor(key); wait > 0 {
+		s.logBBSAction(user.Callsign, "web_login_lockout", "address=%q remaining=%s", clientAddress(r), wait.Round(time.Second))
+		s.view(w, r, "login", nil, nil, "", s.t(user.Language, "web_login_locked"))
+		return
+	}
 	if user.Disabled {
 		s.view(w, r, "login", nil, nil, "", s.t(user.Language, "web_account_disabled"))
 		return
 	}
 	if !verifyPassword(password, user.PasswordHash) {
+		if locked, wait := s.throttle.recordFailure(key); locked {
+			s.logBBSAction(user.Callsign, "web_login_lockout", "address=%q remaining=%s", clientAddress(r), wait.Round(time.Second))
+			s.view(w, r, "login", nil, nil, "", s.t(user.Language, "web_login_locked"))
+			return
+		}
 		s.view(w, r, "login", nil, nil, "", s.t(user.Language, "web_wrong_login"))
 		return
 	}
+	s.throttle.clear(key)
 	user.LastSeen = now()
-	if s.cfg.sysops[user.Callsign] {
-		user.IsSysop = true
-	}
 	s.db.Save(&user)
 	s.logBBSAction(user.Callsign, "web_login", "sysop=%t", s.isSysop(&user))
-	go s.sendLoginAPRSBeacon(user.Callsign, user)
+	s.background.Add(1)
+	go func() {
+		defer s.background.Done()
+		s.sendLoginAPRSBeacon(user.Callsign, user)
+	}()
 	s.setSession(w, user.Callsign)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

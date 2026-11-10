@@ -17,7 +17,7 @@ func newTestServer(t *testing.T) *server {
 	}
 	logDir := t.TempDir()
 	text := map[string]map[string]any{"en": {}}
-	return &server{
+	s := &server{
 		cfg: config{
 			bbsLog:     filepath.Join(logDir, "bbs.log"),
 			aprsLog:    filepath.Join(logDir, "aprs.log"),
@@ -33,7 +33,12 @@ func newTestServer(t *testing.T) *server {
 		tpl:      parseTemplates(text),
 		text:     text,
 		sessions: map[string]string{},
+		throttle: newAuthThrottle(),
 	}
+	// A login starts the APRS beacon in the background; let it finish before
+	// the test framework removes logDir, or a late write fails the cleanup.
+	t.Cleanup(s.background.Wait)
+	return s
 }
 
 func testUser(t *testing.T, s *server, user dbUser) *dbUser {

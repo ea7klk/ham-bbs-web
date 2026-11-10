@@ -61,7 +61,11 @@ type server struct {
 	tpl      *template.Template
 	text     map[string]map[string]any
 	sessions map[string]string
+	throttle *authThrottle
 	mu       sync.RWMutex
+	// background tracks fire-and-forget work (such as the login beacon) so a
+	// test can wait for it before removing its temporary directory.
+	background sync.WaitGroup
 }
 
 type viewData struct {
@@ -111,7 +115,7 @@ func newServer() (*server, error) {
 	if err := readJSON(cfg.transFile, &text, map[string]map[string]any{}); err != nil {
 		return nil, err
 	}
-	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}}
+	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle()}
 	if err := app.seedDefaultData(); err != nil {
 		return nil, err
 	}
