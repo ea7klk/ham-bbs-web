@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
@@ -8,8 +9,7 @@ import (
 )
 
 func (s *server) boards(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	var boards []dbBoard
-	s.db.Order("position, id").Find(&boards)
+	boards := s.loadBoards()
 	counts := map[string]int64{}
 	for _, b := range boards {
 		var count int64
@@ -120,10 +120,18 @@ func (s *server) messagePost(w http.ResponseWriter, r *http.Request, user *dbUse
 		http.NotFound(w, r)
 		return
 	}
-	msg := dbMessage{BoardID: board.ID, From: user.Callsign, Subject: strings.TrimSpace(r.FormValue("subject")), Body: strings.TrimSpace(r.FormValue("body")), Created: now()}
+	msg := dbMessage{
+		BoardID: board.ID,
+		From:    user.Callsign,
+		Subject: sanitizeSingleLineText(r.FormValue("subject")),
+		Body:    sanitizeMultilineText(r.FormValue("body")),
+		Created: now(),
+	}
 	if msg.Subject != "" && msg.Body != "" {
-		msg.Position = s.nextMessagePosition(board.ID, nil)
-		s.db.Create(&msg)
+		if _, err := s.createMessage(msg); err != nil {
+			s.view(w, r, "board", user, map[string]any{"Board": board, "Messages": s.messageTree(board.ID)}, "", err.Error())
+			return
+		}
 		s.logBBSAction(user.Callsign, "web_message_post", "board=%q subject=%q", board.Name, msg.Subject)
 	}
 	http.Redirect(w, r, "/boards/"+board.ID, http.StatusSeeOther)
@@ -135,10 +143,30 @@ func (s *server) messageReply(w http.ResponseWriter, r *http.Request, user *dbUs
 		http.NotFound(w, r)
 		return
 	}
-	msg := dbMessage{BoardID: parent.BoardID, ParentID: &parent.ID, From: user.Callsign, Subject: strings.TrimSpace(r.FormValue("subject")), Body: strings.TrimSpace(r.FormValue("body")), Created: now()}
+	msg := dbMessage{
+		BoardID:  parent.BoardID,
+		ParentID: &parent.ID,
+		From:     user.Callsign,
+		Subject:  sanitizeSingleLineText(r.FormValue("subject")),
+		Body:     sanitizeMultilineText(r.FormValue("body")),
+		Created:  now(),
+	}
 	if msg.Subject != "" && msg.Body != "" {
-		msg.Position = s.nextMessagePosition(parent.BoardID, &parent.ID)
-		s.db.Create(&msg)
+		if _, err := s.createMessage(msg); err != nil {
+			// The same nesting cap the SSH client enforces, reported in the web
+			// form rather than as a bare 500.
+			message := err.Error()
+			if errors.Is(err, errThreadTooDeep) {
+				message = s.t(user.Language, "thread_too_deep")
+			}
+			board, boardErr := s.findBoard(parent.BoardID)
+			if boardErr != nil {
+				http.NotFound(w, r)
+				return
+			}
+			s.view(w, r, "board", user, map[string]any{"Board": board, "Messages": s.messageTree(board.ID)}, "", message)
+			return
+		}
 		s.logBBSAction(user.Callsign, "web_message_reply", "board=%q subject=%q", parent.BoardID, msg.Subject)
 	}
 	http.Redirect(w, r, "/boards/"+parent.BoardID, http.StatusSeeOther)
@@ -164,18 +192,6 @@ func (s *server) findMessage(rawID string) (dbMessage, error) {
 	id, _ := strconv.Atoi(rawID)
 	var msg dbMessage
 	return msg, s.db.First(&msg, id).Error
-}
-
-func (s *server) nextMessagePosition(boardID string, parentID *uint) int {
-	var maxPos int
-	q := s.db.Model(&dbMessage{}).Where("board_id = ?", boardID)
-	if parentID == nil {
-		q = q.Where("parent_id IS NULL")
-	} else {
-		q = q.Where("parent_id = ?", *parentID)
-	}
-	q.Select("COALESCE(MAX(position), -1)").Scan(&maxPos)
-	return maxPos + 1
 }
 
 func (s *server) deleteMessageTree(id uint) {

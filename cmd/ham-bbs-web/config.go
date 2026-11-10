@@ -33,6 +33,12 @@ var (
 	errUnauthorized = errors.New("unauthorized")
 )
 
+// maxReplyDepth bounds how deep replies may nest below a top-level message, so
+// a thread is at most maxReplyDepth+1 rows deep. The classic SSH BBS enforces
+// the same cap against the shared database, so the web app must not be the
+// bypass that stores deeper threads.
+const maxReplyDepth = 5
+
 type config struct {
 	addr       string
 	dataDir    string

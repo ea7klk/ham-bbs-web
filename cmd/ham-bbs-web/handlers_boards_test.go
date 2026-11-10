@@ -87,10 +87,10 @@ func TestBoardAndMessageBusinessLogic(t *testing.T) {
 	if len(nodes) != 1 || nodes[0].Depth != 0 || len(nodes[0].Replies) != 2 || nodes[0].Replies[0].Depth != 1 {
 		t.Fatalf("messageTree() = %#v", nodes)
 	}
-	if got := s.nextMessagePosition("field-operations", nil); got != 1 {
+	if got := nextMessagePosition(s.db, "field-operations", nil); got != 1 {
 		t.Fatalf("next root message position = %d, want 1", got)
 	}
-	if got := s.nextMessagePosition("field-operations", &root.ID); got != 2 {
+	if got := nextMessagePosition(s.db, "field-operations", &root.ID); got != 2 {
 		t.Fatalf("next reply position = %d, want 2", got)
 	}
 	if _, err := s.findMessage("not-a-number"); err == nil {
