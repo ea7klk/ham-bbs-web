@@ -3,13 +3,10 @@ package main
 import (
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 func (s *server) bulletins(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	var items []dbBulletin
-	s.db.Order("position, id").Find(&items)
-	s.view(w, r, "bulletins", user, items, "", "")
+	s.view(w, r, "bulletins", user, s.loadBulletins(), "", "")
 }
 
 func (s *server) bulletinNew(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -19,7 +16,13 @@ func (s *server) bulletinNew(w http.ResponseWriter, r *http.Request, user *dbUse
 func (s *server) bulletinCreate(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	var maxPos int
 	s.db.Model(&dbBulletin{}).Select("COALESCE(MAX(position), -1)").Scan(&maxPos)
-	item := dbBulletin{Position: maxPos + 1, Title: strings.TrimSpace(r.FormValue("title")), Body: strings.TrimSpace(r.FormValue("body")), Updated: now(), From: user.Callsign}
+	item := dbBulletin{
+		Position: maxPos + 1,
+		Title:    sanitizeSingleLineText(r.FormValue("title")),
+		Body:     sanitizeMultilineText(r.FormValue("body")),
+		Updated:  now(),
+		From:     user.Callsign,
+	}
 	if item.Title == "" || item.Body == "" {
 		s.view(w, r, "bulletin_form", user, item, "", s.t(user.Language, "required"))
 		return
@@ -44,8 +47,8 @@ func (s *server) bulletinUpdate(w http.ResponseWriter, r *http.Request, user *db
 		http.NotFound(w, r)
 		return
 	}
-	item.Title = strings.TrimSpace(r.FormValue("title"))
-	item.Body = strings.TrimSpace(r.FormValue("body"))
+	item.Title = sanitizeSingleLineText(r.FormValue("title"))
+	item.Body = sanitizeMultilineText(r.FormValue("body"))
 	item.Updated = now()
 	item.From = user.Callsign
 	if item.Title == "" || item.Body == "" {

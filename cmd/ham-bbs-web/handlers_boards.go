@@ -5,7 +5,6 @@ import (
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 func (s *server) boards(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -34,8 +33,8 @@ func (s *server) boardNew(w http.ResponseWriter, r *http.Request, user *dbUser) 
 }
 
 func (s *server) boardCreate(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	name := strings.TrimSpace(r.FormValue("name"))
-	board := dbBoard{ID: boardID(name), Name: name, Description: strings.TrimSpace(r.FormValue("description")), Created: now()}
+	name := sanitizeSingleLineText(r.FormValue("name"))
+	board := dbBoard{ID: boardID(name), Name: name, Description: sanitizeSingleLineText(r.FormValue("description")), Created: now()}
 	if board.Name == "" {
 		s.view(w, r, "board_form", user, board, "", s.t(user.Language, "required"))
 		return
@@ -67,7 +66,7 @@ func (s *server) boardUpdate(w http.ResponseWriter, r *http.Request, user *dbUse
 		return
 	}
 	oldID := board.ID
-	name := strings.TrimSpace(r.FormValue("name"))
+	name := sanitizeSingleLineText(r.FormValue("name"))
 	newID := boardID(name)
 	if name == "" {
 		board.Name = name
@@ -85,7 +84,7 @@ func (s *server) boardUpdate(w http.ResponseWriter, r *http.Request, user *dbUse
 			board.ID = newID
 		}
 		board.Name = name
-		board.Description = strings.TrimSpace(r.FormValue("description"))
+		board.Description = sanitizeSingleLineText(r.FormValue("description"))
 		return tx.Save(&board).Error
 	})
 	if err != nil {

@@ -139,13 +139,13 @@ func (s *server) profilePost(w http.ResponseWriter, r *http.Request, user *dbUse
 
 func (s *server) userFromForm(r *http.Request, user dbUser, requirePassword bool) (dbUser, string) {
 	user.Callsign = normalizeCallsign(firstNonEmpty(user.Callsign, r.FormValue("callsign")))
-	user.FullName = strings.TrimSpace(r.FormValue("full_name"))
-	user.Email = strings.TrimSpace(r.FormValue("email"))
-	user.Maidenhead = normalizeLocator(r.FormValue("maidenhead"))
+	user.FullName = sanitizeSingleLineText(r.FormValue("full_name"))
+	user.Email = sanitizeSingleLineText(r.FormValue("email"))
+	user.Maidenhead = normalizeLocator(sanitizeSingleLineText(r.FormValue("maidenhead")))
 	user.Language = strings.TrimSpace(r.FormValue("language"))
 	user.EnableAPRS = r.FormValue("enable_aprs") == "true"
-	user.QTH = strings.TrimSpace(r.FormValue("qth"))
-	user.Rig = strings.TrimSpace(r.FormValue("rig"))
+	user.QTH = sanitizeSingleLineText(r.FormValue("qth"))
+	user.Rig = sanitizeSingleLineText(r.FormValue("rig"))
 	lang := user.Language
 	if lang == "" {
 		lang = "en"
