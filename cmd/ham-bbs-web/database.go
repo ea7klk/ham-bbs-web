@@ -6,7 +6,13 @@ import (
 )
 
 func openDatabase(path string) (*gorm.DB, error) {
-	db, err := gorm.Open(sqlite.Open(path+"?_busy_timeout=5000&_journal_mode=WAL"), &gorm.Config{})
+	// _txlock=immediate makes every transaction take the write lock at BEGIN
+	// instead of at its first write, and _busy_timeout makes a waiting writer
+	// block rather than fail. The classic SSH BBS opens the same file with the
+	// same settings; matching them is what serialises read-then-write
+	// transactions across the two applications instead of letting them
+	// interleave and lose an update.
+	db, err := gorm.Open(sqlite.Open(path+"?_busy_timeout=5000&_journal_mode=WAL&_txlock=immediate"), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
