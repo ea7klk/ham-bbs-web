@@ -5,6 +5,7 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	"html/template"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -63,7 +64,11 @@ type server struct {
 	text     map[string]map[string]any
 	sessions map[string]string
 	throttle *authThrottle
-	mu       sync.RWMutex
+	// mail sends the activation codes, reset links and email-change links that
+	// the account flows need. A deployment without SMTP configured runs with
+	// activation skipped, exactly as the SSH BBS does.
+	mail *mailer
+	mu   sync.RWMutex
 	// background tracks fire-and-forget work (such as the login beacon) so a
 	// test can wait for it before removing its temporary directory.
 	background sync.WaitGroup
@@ -169,7 +174,11 @@ func newServer() (*server, error) {
 	if err := readJSON(cfg.transFile, &text, map[string]map[string]any{}); err != nil {
 		return nil, err
 	}
-	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle()}
+	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle(), mail: newMailerFromEnv()}
+	if problem := app.mail.Problem(); problem != "" {
+		// Say it once at startup rather than failing every send later.
+		log.Printf("outbound mail disabled: %s", problem)
+	}
 	if err := app.seedDefaultData(); err != nil {
 		return nil, err
 	}
