@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 4 — Packet Manual · HAMNET RADIO BBS</title>
+<style>
+  :root{
+    color-scheme: light;
+    --ink:#111111; --paper:#ffffff; --wash:#f2f2ee; --rule:#111111;
+    --grey:#5f5f5a; --orange:#e8590c; --green:#0b7a3b;
+    --mono: ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--wash);color:var(--ink);font-family:var(--mono);line-height:1.45}
+  a{color:inherit}
+  :focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+
+  .frame{max-width:1200px;margin:0 auto;background:var(--paper);border-left:2px solid var(--rule);border-right:2px solid var(--rule);min-height:100vh}
+
+  /* header: a title block, like a drawing sheet */
+  .head{border-bottom:2px solid var(--rule);display:grid;grid-template-columns:1fr auto}
+  .head .title{padding:16px 20px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .head h1{margin:0;font-size:17px;letter-spacing:.20em;text-transform:uppercase}
+  .head .rev{font-size:11px;color:var(--grey);letter-spacing:.14em;text-transform:uppercase}
+  .head .ssh{padding:16px 20px;border-left:2px solid var(--rule);font-size:11.5px;letter-spacing:.06em;display:grid;place-content:center;gap:2px}
+  .head .ssh b{color:var(--orange)}
+
+  .nav{border-bottom:2px solid var(--rule);display:flex;flex-wrap:wrap}
+  .nav a{
+    padding:11px 18px;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;
+    border-right:1px solid var(--rule);border-bottom:0;
+  }
+  .nav a:hover{background:var(--ink);color:var(--paper)}
+  .nav a[aria-current]{background:var(--orange);color:#fff}
+  .nav .spacer{margin-left:auto;border-right:0;border-left:1px solid var(--rule);color:var(--grey)}
+
+  .body{display:grid;grid-template-columns:1fr 300px}
+  .main{padding:0}
+  .side{border-left:2px solid var(--rule)}
+
+  /* hero block */
+  .hero{padding:34px 26px 28px;border-bottom:2px solid var(--rule)}
+  .kicker{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--orange);margin:0 0 12px}
+  .hero h2{margin:0;font-size:clamp(26px,4.2vw,42px);line-height:1.06;letter-spacing:-.02em;text-transform:uppercase;max-width:24ch}
+  .hero p{margin:14px 0 0;max-width:58ch;font-size:13.5px;color:#333}
+  .hero .row{display:flex;gap:0;flex-wrap:wrap;margin-top:22px;border:2px solid var(--rule);width:fit-content}
+  .hero .row a{padding:11px 18px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;text-decoration:none;border-right:2px solid var(--rule)}
+  .hero .row a:last-child{border-right:0}
+  .hero .row a.primary{background:var(--ink);color:var(--paper)}
+  .hero .row a:hover{background:var(--orange);color:#fff}
+
+  /* section header strip */
+  .strip{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 26px;border-bottom:2px solid var(--rule);background:var(--wash)}
+  .strip h3{margin:0;font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+  .strip span{font-size:11px;color:var(--grey);letter-spacing:.08em}
+
+  /* boards as ruled rows */
+  .boards{padding:0 26px}
+  .brow{display:grid;grid-template-columns:1fr auto auto;gap:16px;align-items:center;padding:13px 0;border-bottom:1px solid #d8d8d2;text-decoration:none}
+  .brow:last-child{border-bottom:0}
+  .brow b{font-size:14px;letter-spacing:.02em}
+  .brow small{display:block;color:var(--grey);font-size:12px;margin-top:2px;letter-spacing:0}
+  .brow .n{font-size:12px;color:var(--green);font-weight:700}
+  .brow .go{font-size:12px;color:var(--orange)}
+  .brow:hover b{color:var(--orange)}
+
+  /* bulletins */
+  .bul{padding:14px 26px;border-bottom:1px solid #d8d8d2;display:grid;grid-template-columns:96px 1fr;gap:16px}
+  .bul:last-child{border-bottom:0}
+  .bul .d{font-size:11px;color:var(--grey);letter-spacing:.06em;padding-top:3px}
+  .bul h4{margin:0 0 3px;font-size:13.5px;letter-spacing:.01em}
+  .bul p{margin:0;font-size:12.5px;color:#3a3a36}
+
+  /* side: log + station */
+  .panel{padding:16px 18px;border-bottom:2px solid var(--rule)}
+  .panel:last-child{border-bottom:0}
+  .panel h3{margin:0 0 12px;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--grey)}
+  .kv{display:grid;grid-template-columns:1fr auto;gap:6px 10px;font-size:12px}
+  .kv dt{color:var(--grey);letter-spacing:.04em}
+  .kv dd{margin:0;font-weight:700}
+  .kv dd.hot{color:var(--orange)}
+
+  .log{font-size:11.5px;line-height:1.7}
+  .log div{display:grid;grid-template-columns:40px 1fr;gap:8px;border-bottom:1px dotted #cfcfc8;padding:5px 0}
+  .log div:last-child{border-bottom:0}
+  .log .t{color:var(--grey)}
+  .log .cs{font-weight:700}
+  .tag{display:inline-block;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:1px 5px;border:1px solid;margin-left:4px}
+  .tag.ok{color:var(--green);border-color:var(--green)}
+  .tag.part{color:#9a5b06;border-color:#9a5b06}
+  .tag.rej{color:#c1121f;border-color:#c1121f}
+
+  .ops{display:grid;gap:0}
+  .op{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px dotted #cfcfc8;font-size:12px;text-decoration:none}
+  .op:last-child{border-bottom:0}
+  .op b{letter-spacing:.04em}
+  .op small{color:var(--grey);font-size:11px}
+  .op:hover b{color:var(--orange)}
+
+  .foot{border-top:2px solid var(--rule);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 26px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--grey)}
+
+  @media (max-width:900px){
+    .frame{border-left:0;border-right:0}
+    .body{grid-template-columns:1fr}
+    .side{border-left:0;border-top:2px solid var(--rule);display:grid;grid-template-columns:1fr 1fr}
+    .panel{border-bottom:0;border-right:2px solid var(--rule)}
+    .panel:last-child{border-right:0}
+    .head{grid-template-columns:1fr}
+    .head .ssh{border-left:0;border-top:2px solid var(--rule)}
+    .hero,.boards,.strip,.bul,.foot{padding-left:16px;padding-right:16px}
+    .hero h2{max-width:none}
+  }
+  @media (max-width:560px){
+    .side{grid-template-columns:1fr}
+    .panel{border-right:0;border-bottom:2px solid var(--rule)}
+    .nav a{padding:10px 12px;font-size:10.5px}
+    .brow{grid-template-columns:1fr auto}
+    .brow .go{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <header class="head">
+    <div class="title">
+      <h1>Hamnet Radio BBS</h1>
+      <span class="rev">Madrid · rev 2026.11 · packets since 1998</span>
+    </div>
+    <div class="ssh">
+      <span>SSH <b>:2222</b> · HamNet <b>44.27.132.79</b></span>
+      <span>signed in as EA7KLK</span>
+    </div>
+  </header>
+
+  <nav class="nav" aria-label="Main">
+    <a href="#" aria-current="page">Home</a>
+    <a href="#">Bulletins</a>
+    <a href="#">Boards</a>
+    <a href="#">Directory</a>
+    <a href="#">APRS</a>
+    <a href="#">Profile</a>
+    <a href="#" class="spacer">Log out</a>
+  </nav>
+
+  <div class="body">
+    <main class="main">
+      <section class="hero">
+        <p class="kicker">Operating notes · local nets · packet-era experiments</p>
+        <h2>A board that still works when the internet doesn't.</h2>
+        <p>Bulletins, threaded messages, a station directory and APRS history, all backed by one SQLite file and reachable over SSH. This page is the same data, rendered for a browser.</p>
+        <div class="row">
+          <a class="primary" href="#">Open boards</a>
+          <a href="#">Read bulletins</a>
+          <a href="#">APRS traffic</a>
+        </div>
+      </section>
+
+      <div class="strip"><h3>Message boards</h3><span>6 active · 412 threads</span></div>
+      <div class="boards">
+        <a class="brow" href="#"><span><b>General</b><small>General local messages</small></span><span class="n">184</span><span class="go">→</span></a>
+        <a class="brow" href="#"><span><b>Antennas</b><small>Builds, SWR, and the neighbours</small></span><span class="n">96</span><span class="go">→</span></a>
+        <a class="brow" href="#"><span><b>APRS &amp; Packet</b><small>Digipeaters, igates, beacons</small></span><span class="n">71</span><span class="go">→</span></a>
+        <a class="brow" href="#"><span><b>Nets</b><small>Weekly schedules and check-ins</small></span><span class="n">61</span><span class="go">→</span></a>
+      </div>
+
+      <div class="strip"><h3>Bulletins</h3><span>newest first</span></div>
+      <article class="bul"><span class="d">2026-11-10</span><div><h4>Thursday net moves to 20:00</h4><p>Same repeater, later start so the mobile stations can check in. EA7KLK.</p></div></article>
+      <article class="bul"><span class="d">2026-11-08</span><div><h4>Repeater ED4YBA back on air</h4><p>Duplexer serviced. Reports welcome on the Antennas board. EA1ABC.</p></div></article>
+      <article class="bul"><span class="d">2026-11-02</span><div><h4>APRS igate moved, wider filter</h4><p>Covers the whole province now. No change needed at your end.</p></div></article>
+    </main>
+
+    <aside class="side">
+      <section class="panel">
+        <h3>Your station</h3>
+        <dl class="kv">
+          <dt>Call</dt><dd class="hot">EA7KLK</dd>
+          <dt>Locator</dt><dd>IM77AH</dd>
+          <dt>Registered</dt><dd>2026-07-08</dd>
+          <dt>Last seen</dt><dd>09:41 today</dd>
+          <dt>APRS</dt><dd>on</dd>
+        </dl>
+      </section>
+
+      <section class="panel">
+        <h3>APRS log</h3>
+        <div class="log">
+          <div><span class="t">09:41</span><span><span class="cs">EA7KLK</span> Net tonight 20:00 <span class="tag ok">ack</span></span></div>
+          <div><span class="t">09:12</span><span><span class="cs">DN9RZ</span> WX back online <span class="tag part">part</span></span></div>
+          <div><span class="t">08:58</span><span><span class="cs">TG5ALY</span> Test via igate <span class="tag rej">rej</span></span></div>
+          <div><span class="t">08:30</span><span><span class="cs">VE7TIN</span> Skeds this week? <span class="tag ok">ack</span></span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Operator index</h3>
+        <div class="ops">
+          <a class="op" href="#"><span><b>EA1ABC</b><br><small>Ana · IN80DO</small></span><span>→</span></a>
+          <a class="op" href="#"><span><b>DN9RZ</b><br><small>Ralf · JO31</small></span><span>→</span></a>
+          <a class="op" href="#"><span><b>VE7TIN</b><br><small>Tina · CN89</small></span><span>→</span></a>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="foot">
+    <span>Hamnet Radio BBS · local first, off-grid by default</span>
+    <span>Mockup 4 of 4 — “Packet Manual”</span>
+  </div>
+</div>
+</body>
+</html>

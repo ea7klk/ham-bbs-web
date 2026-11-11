@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -20,6 +21,19 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /reset", s.public(s.resetForm))
 	mux.HandleFunc("POST /reset", s.public(s.resetPost))
 	mux.HandleFunc("GET /email/confirm", s.public(s.emailConfirm))
+
+	// Design mockups: static, anonymous, and not part of the application.
+	mockups, mockupErr := mockupHandler()
+	if mockupErr != nil {
+		// The mockups are embedded at build time, so this cannot fail in a
+		// correctly built binary; say so rather than serving nothing silently.
+		log.Printf("design mockups unavailable: %v", mockupErr)
+	} else {
+		mux.HandleFunc("GET /mockups", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/mockups/", http.StatusMovedPermanently)
+		})
+		mux.Handle("GET /mockups/", mockups)
+	}
 	mux.HandleFunc("POST /logout", s.logoutPost)
 	mux.HandleFunc("POST /language", s.requireAuth(s.languagePost))
 	mux.HandleFunc("GET /profile", s.requireAuth(s.profileForm))

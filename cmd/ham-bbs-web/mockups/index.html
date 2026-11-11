@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design mockups · HAMNET RADIO BBS</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{
+    color-scheme: light;
+    --ink:#12181a; --muted:#63727a; --line:#dde5e3; --paper:#fbfdfc; --accent:#146c5c;
+    --sans: ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.55}
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+  .wrap{max-width:1080px;margin:0 auto;padding:44px 20px 64px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+  h1{margin:0;font-size:clamp(28px,4.4vw,42px);line-height:1.1;letter-spacing:-.02em}
+  .lede{color:var(--muted);max-width:62ch;margin:14px 0 0;font-size:15.5px}
+  .note{background:#eef5f2;border:1px solid #cfe0da;border-radius:10px;padding:14px 16px;margin:26px 0 32px;font-size:14px;color:#2c4a44}
+  .note b{color:#123f36}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+  .card{
+    display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;text-decoration:none;transition:border-color .15s ease, transform .15s ease;
+  }
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .thumb{height:132px;position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .thumb span{position:absolute;left:14px;top:12px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+  .thumb .bars{position:absolute;left:14px;right:14px;bottom:14px;display:flex;align-items:flex-end;gap:4px;height:52px}
+  .thumb .bars i{flex:1;border-radius:2px}
+  .body{padding:18px 18px 20px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .body h2{margin:0;font-size:18px;letter-spacing:-.01em}
+  .body p{margin:0;color:var(--muted);font-size:14px}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:10px}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:#eef5f2;border:1px solid #d3e4de;border-radius:99px;padding:3px 9px}
+  .foot{margin-top:34px;font-size:13px;color:var(--muted)}
+  footer{border-top:1px solid var(--line);margin-top:40px;padding-top:18px;font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+  /* per-card thumbnail palettes, so the index hints at each direction */
+  .t1{background:radial-gradient(400px 200px at 20% 0%,#0f2a26,#080c0e)}
+  .t1 span{color:#48e0a4}.t1 .bars i{background:linear-gradient(180deg,#48e0a4,#1c6a52)}
+  .t2{background:radial-gradient(400px 200px at 80% 0%,#efe4cd,#f6f1e6)}
+  .t2 span{color:#b3382c}.t2 .bars i{background:linear-gradient(180deg,#123a4d,#123a4d55)}
+  .t3{background:radial-gradient(400px 200px at 10% 0%,#2b1b6b,#080a18)}
+  .t3 span{color:#4fd8ff}.t3 .bars i{background:linear-gradient(180deg,#4fd8ff,#8b7bff)}
+  .t4{background:#fff;border-bottom:1px solid #111}
+  .t4 span{color:#e8590c}.t4 .bars i{background:linear-gradient(180deg,#111,#111)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">HAMNET RADIO BBS · design review</p>
+  <h1>Four directions for the web BBS</h1>
+  <p class="lede">Each mockup is a static, responsive page using the real content and data the board actually holds — boards, bulletins, APRS traffic, the station directory. Resize the window or open them on a phone; they are built to reflow, not to be a picture.</p>
+
+  <div class="note">
+    <b>How to choose.</b> Open each one, then reply with the number. The chosen direction becomes the real skin for every page — login, boards, APRS, the sysop screens — so pick the one whose <em>mood</em> you want the whole board to carry, not just the one with the nicest home page.
+  </div>
+
+  <div class="grid">
+    <a class="card" href="/mockups/1-front-panel.html">
+      <div class="thumb t1"><span>01 — Front Panel</span>
+        <div class="bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:40%"></i><i style="height:78%"></i><i style="height:52%"></i><i style="height:90%"></i><i style="height:36%"></i><i style="height:64%"></i><i style="height:28%"></i></div>
+      </div>
+      <div class="body">
+        <h2>Front Panel</h2>
+        <p>Dark, instrument-like: phosphor green, amber highlights, an S-meter status strip and a waterfall trace. Reads like the front of a transceiver.</p>
+        <div class="tags"><span class="tag">dark</span><span class="tag">technical</span><span class="tag">mono accents</span></div>
+      </div>
+    </a>
+
+    <a class="card" href="/mockups/2-qsl-desk.html">
+      <div class="thumb t2"><span>02 — QSL Desk</span>
+        <div class="bars"><i style="height:44%"></i><i style="height:62%"></i><i style="height:36%"></i><i style="height:70%"></i><i style="height:50%"></i><i style="height:84%"></i><i style="height:40%"></i><i style="height:58%"></i><i style="height:32%"></i></div>
+      </div>
+      <div class="body">
+        <h2>QSL Desk</h2>
+        <p>Light and editorial: warm paper, navy and a single red accent, serif headlines and operators presented as QSL cards with grid squares.</p>
+        <div class="tags"><span class="tag">light</span><span class="tag">editorial</span><span class="tag">serif</span></div>
+      </div>
+    </a>
+
+    <a class="card" href="/mockups/3-spectrum.html">
+      <div class="thumb t3"><span>03 — Spectrum</span>
+        <div class="bars"><i style="height:38%"></i><i style="height:66%"></i><i style="height:48%"></i><i style="height:88%"></i><i style="height:56%"></i><i style="height:74%"></i><i style="height:42%"></i><i style="height:92%"></i><i style="height:34%"></i></div>
+      </div>
+      <div class="body">
+        <h2>Spectrum</h2>
+        <p>Modern and colourful: indigo-to-magenta gradients, frosted glass tiles, a bento dashboard and a live-looking band-activity spectrum.</p>
+        <div class="tags"><span class="tag">dark</span><span class="tag">gradient</span><span class="tag">dashboard</span></div>
+      </div>
+    </a>
+
+    <a class="card" href="/mockups/4-packet-manual.html">
+      <div class="thumb t4"><span>04 — Packet Manual</span>
+        <div class="bars"><i style="height:52%"></i><i style="height:30%"></i><i style="height:76%"></i><i style="height:44%"></i><i style="height:64%"></i><i style="height:36%"></i><i style="height:88%"></i><i style="height:48%"></i><i style="height:70%"></i></div>
+      </div>
+      <div class="body">
+        <h2>Packet Manual</h2>
+        <p>Bright and blunt: monospace throughout, heavy black rules, signal-orange accents, ruled tables and a title block. Honours the BBS lineage without pretending to be a terminal.</p>
+        <div class="tags"><span class="tag">light</span><span class="tag">brutalist</span><span class="tag">mono</span></div>
+      </div>
+    </a>
+  </div>
+
+  <p class="foot">All four are static HTML with inline CSS and no external assets, so they load over HamNet with nothing to fetch. They are served by the BBS itself, not by a separate site.</p>
+
+  <footer>
+    <span>HAMNET RADIO BBS · mockups are not linked from the main navigation</span>
+    <span>Built 2026-11-11</span>
+  </footer>
+</div>
+</body>
+</html>

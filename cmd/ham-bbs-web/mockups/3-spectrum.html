@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 3 — Spectrum · HAMNET RADIO BBS</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --void:#080a18; --ink:#f2f0ff; --muted:#a7a3c8;
+    --glass:#ffffff0a; --edge:#ffffff1f;
+    --violet:#8b7bff; --cyan:#4fd8ff; --pink:#ff6ec7; --lime:#b6f36a;
+    --sans: ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;color:var(--ink);font-family:var(--sans);line-height:1.5;
+    background:
+      radial-gradient(1000px 560px at 8% -10%, #2b1b6b 0%, transparent 62%),
+      radial-gradient(900px 520px at 95% 4%, #5c1b52 0%, transparent 58%),
+      radial-gradient(700px 420px at 50% 108%, #0e3b58 0%, transparent 60%),
+      var(--void);
+    background-attachment:fixed;
+  }
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:10px}
+  .shell{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  /* floating pill nav */
+  .top{padding:18px 0 6px}
+  .pillbar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:#ffffff0d;border:1px solid var(--edge);border-radius:999px;
+    padding:8px 10px 8px 16px;backdrop-filter:blur(14px);
+  }
+  .logo{display:flex;align-items:center;gap:9px;text-decoration:none;font-weight:800;letter-spacing:-.01em;font-size:15px}
+  .logo i{width:22px;height:22px;border-radius:7px;background:conic-gradient(from 210deg,var(--violet),var(--cyan),var(--pink),var(--violet));display:block}
+  .pillbar nav{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
+  .pillbar nav a{font-size:13px;text-decoration:none;color:var(--muted);padding:7px 12px;border-radius:999px}
+  .pillbar nav a:hover{color:var(--ink);background:#ffffff10}
+  .pillbar nav a[aria-current]{color:#0b0a1c;background:linear-gradient(120deg,var(--cyan),var(--violet));font-weight:700}
+  .avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:700;background:#ffffff14;border:1px solid var(--edge)}
+
+  /* hero */
+  .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:34px;align-items:center;padding:52px 0 34px}
+  .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:#cfcaff;background:#8b7bff1f;border:1px solid #8b7bff40;padding:6px 12px;border-radius:999px;margin-bottom:18px}
+  .tag b{width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px var(--lime)}
+  h1{margin:0;font-size:clamp(34px,5.4vw,58px);line-height:1.02;letter-spacing:-.035em;font-weight:800}
+  .grad{background:linear-gradient(100deg,var(--cyan) 0%,var(--violet) 46%,var(--pink) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.lede{color:var(--muted);font-size:16px;max-width:50ch;margin:16px 0 0}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+  .btn{font-size:14px;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:999px;border:1px solid transparent;background:linear-gradient(120deg,var(--cyan),var(--violet));color:#0b0a1c}
+  .btn.ghost{background:#ffffff0d;border-color:var(--edge);color:var(--ink);font-weight:600}
+  .btn:hover{filter:brightness(1.08)}
+
+  /* spectrum visual */
+  .spectrum{border:1px solid var(--edge);border-radius:20px;background:linear-gradient(170deg,#ffffff10,#ffffff04);padding:18px;backdrop-filter:blur(10px)}
+  .spectrum .hd{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+  .bars{display:flex;align-items:flex-end;gap:4px;height:150px;margin-top:14px}
+  .bars i{flex:1;border-radius:3px;background:linear-gradient(180deg,var(--cyan),var(--violet));opacity:.9}
+  .bars i:nth-child(4n){background:linear-gradient(180deg,var(--pink),var(--violet))}
+  .bars i:nth-child(7n){background:linear-gradient(180deg,var(--lime),var(--cyan))}
+
+  /* bento */
+  .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;padding-bottom:20px}
+  .tile{
+    background:linear-gradient(170deg,#ffffff0c,#ffffff05);border:1px solid var(--edge);border-radius:18px;padding:18px;
+    backdrop-filter:blur(8px);
+  }
+  .tile h2{margin:0 0 14px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .k4{grid-column:span 4}.k2{grid-column:span 2}.k3{grid-column:span 3}.k6{grid-column:span 6}
+
+  .metric{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1;margin:0}
+  .metric small{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:6px}
+
+  .boardlink{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #ffffff10;text-decoration:none}
+  .boardlink:last-child{border-bottom:0}
+  .boardlink .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);flex:none}
+  .boardlink b{font-size:14.5px;font-weight:650}
+  .boardlink small{display:block;color:var(--muted);font-size:12.5px}
+  .boardlink .count{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--violet)}
+  .boardlink:hover b{color:var(--cyan)}
+
+  .bul{padding:12px 0;border-bottom:1px solid #ffffff10}
+  .bul:last-child{border-bottom:0;padding-bottom:0}
+  .bul h3{margin:0 0 3px;font-size:14.5px;font-weight:650}
+  .bul p{margin:0;font-size:13px;color:var(--muted)}
+  .meta{font-family:var(--mono);font-size:10.5px;color:#7b78a0;letter-spacing:.06em;text-transform:uppercase}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-family:var(--mono);font-size:12px;padding:6px 11px;border-radius:999px;background:#ffffff0d;border:1px solid var(--edge);text-decoration:none}
+  .chip:hover{border-color:var(--cyan);color:var(--cyan)}
+
+  .feed{display:grid;gap:10px}
+  .item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 12px;border-radius:12px;background:#ffffff08;border:1px solid #ffffff0f}
+  .item .cs{font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--cyan)}
+  .item .txt{font-size:13px;color:#dcd9f2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badge{font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:999px;font-weight:700;white-space:nowrap}
+  .badge.ok{background:#b6f36a1f;color:var(--lime)}
+  .badge.part{background:#ffb4572b;color:#ffcf8f}
+  .badge.rej{background:#ff6ec72b;color:#ffa8dd}
+
+  footer{border-top:1px solid #ffffff12;margin-top:10px}
+  footer .shell{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:22px 20px;font-size:12.5px;color:var(--muted)}
+  footer code{font-family:var(--mono);color:var(--cyan)}
+
+  @media (max-width:940px){
+    .hero{grid-template-columns:1fr;padding-top:32px}
+    .k4,.k2,.k3{grid-column:span 6}
+    .bars{height:110px}
+    .pillbar{border-radius:18px}
+    .pillbar nav{width:100%;margin-left:0}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .bars i{animation:grow .8s ease-out both}
+    .bars i:nth-child(2n){animation-delay:.05s}
+    .bars i:nth-child(3n){animation-delay:.1s}
+    @keyframes grow{from{transform:scaleY(.08);transform-origin:bottom}to{transform:scaleY(1)}}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell top">
+  <div class="pillbar">
+    <a class="logo" href="#"><i aria-hidden="true"></i>HAMNET BBS</a>
+    <nav aria-label="Main">
+      <a href="#" aria-current="page">Dashboard</a>
+      <a href="#">Boards</a>
+      <a href="#">Bulletins</a>
+      <a href="#">APRS</a>
+      <a href="#">Directory</a>
+    </nav>
+    <span class="avatar" title="EA7KLK">EK</span>
+  </div>
+</div>
+
+<main class="shell">
+  <section class="hero">
+    <div>
+      <span class="tag"><b aria-hidden="true"></b>On the air · 128 operators</span>
+      <h1>Your shack,<br><span class="grad">on the record.</span></h1>
+      <p class="lede">Boards, bulletins and APRS traffic in one place — readable on a phone in the car or a browser at the desk. The same account works over SSH.</p>
+      <div class="actions">
+        <a class="btn" href="#">Open the boards</a>
+        <a class="btn ghost" href="#">Read bulletins</a>
+      </div>
+    </div>
+    <div class="spectrum" aria-hidden="true">
+      <div class="hd"><span>Band activity</span><span>144.800</span></div>
+      <div class="bars">
+        <i style="height:26%"></i><i style="height:44%"></i><i style="height:32%"></i><i style="height:58%"></i>
+        <i style="height:72%"></i><i style="height:40%"></i><i style="height:86%"></i><i style="height:34%"></i>
+        <i style="height:62%"></i><i style="height:94%"></i><i style="height:48%"></i><i style="height:28%"></i>
+        <i style="height:66%"></i><i style="height:38%"></i><i style="height:54%"></i><i style="height:22%"></i>
+        <i style="height:70%"></i><i style="height:46%"></i>
+      </div>
+    </div>
+  </section>
+
+  <div class="bento">
+    <section class="tile k2">
+      <h2>APRS heard today</h2>
+      <p class="metric">37</p>
+      <p class="meta" style="margin:8px 0 0">12 addressed to you</p>
+    </section>
+    <section class="tile k2">
+      <h2>Threads</h2>
+      <p class="metric">412</p>
+      <p class="meta" style="margin:8px 0 0">across 6 boards</p>
+    </section>
+    <section class="tile k2">
+      <h2>Last connection</h2>
+      <p class="metric" style="font-size:26px">09:41</p>
+      <p class="meta" style="margin:8px 0 0">today · from HamNet</p>
+    </section>
+
+    <section class="tile k4">
+      <h2>Message boards</h2>
+      <a class="boardlink" href="#"><span class="dot" aria-hidden="true"></span><span><b>General</b><small>General local messages</small></span><span class="count">184</span></a>
+      <a class="boardlink" href="#"><span class="dot" aria-hidden="true"></span><span><b>Antennas</b><small>Builds, SWR, and the neighbours</small></span><span class="count">96</span></a>
+      <a class="boardlink" href="#"><span class="dot" aria-hidden="true"></span><span><b>APRS &amp; Packet</b><small>Digipeaters, igates, beacons</small></span><span class="count">71</span></a>
+      <a class="boardlink" href="#"><span class="dot" aria-hidden="true"></span><span><b>Nets</b><small>Weekly schedules and check-ins</small></span><span class="count">61</span></a>
+    </section>
+
+    <section class="tile k2">
+      <h2>Bulletins</h2>
+      <div class="bul"><h3>Thursday net → 20:00</h3><p class="meta" style="margin-top:4px">10 Nov · EA7KLK</p></div>
+      <div class="bul"><h3>ED4YBA back on air</h3><p class="meta" style="margin-top:4px">08 Nov · EA1ABC</p></div>
+      <div class="bul"><h3>Winter work party</h3><p class="meta" style="margin-top:4px">02 Nov · EA7KLK</p></div>
+    </section>
+
+    <section class="tile k3">
+      <h2>APRS traffic</h2>
+      <div class="feed">
+        <div class="item"><span class="cs">EA7KLK</span><span class="txt">Net tonight 20:00, ED4YBA</span><span class="badge ok">acked</span></div>
+        <div class="item"><span class="cs">DN9RZ</span><span class="txt">WX station back online at the club</span><span class="badge part">partial</span></div>
+        <div class="item"><span class="cs">TG5ALY</span><span class="txt">Test message via igate</span><span class="badge rej">rejected</span></div>
+        <div class="item"><span class="cs">VE7TIN</span><span class="txt">Skeds this week?</span><span class="badge ok">acked</span></div>
+      </div>
+    </section>
+
+    <section class="tile k3">
+      <h2>Stations nearby</h2>
+      <div class="chips">
+        <a class="chip" href="#">EA7KLK · IM77ah</a>
+        <a class="chip" href="#">EA1ABC · IN80do</a>
+        <a class="chip" href="#">DN9RZ · JO31</a>
+        <a class="chip" href="#">YO8SDE · KN37</a>
+        <a class="chip" href="#">VE7TIN · CN89</a>
+        <a class="chip" href="#">TG5ALY · EK44</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="shell">
+    <span>HAMNET RADIO BBS · OpenSSH <code>2222</code> · HamNet <code>44.27.132.79</code></span>
+    <span>Mockup 3 of 4 — “Spectrum”</span>
+  </div>
+</footer>
+
+</body>
+</html>

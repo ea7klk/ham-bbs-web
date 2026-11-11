@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 2 — QSL Desk · HAMNET RADIO BBS</title>
+<style>
+  :root{
+    color-scheme: light;
+    --paper:#f6f1e6; --paper-2:#fffdf7; --ink:#1b2b34; --muted:#6b7a80;
+    --rule:#e2d8c4; --navy:#123a4d; --red:#b3382c; --gold:#c08a2e;
+    --serif: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans: ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;color:var(--ink);background:
+      radial-gradient(900px 380px at 85% -10%, #efe4cd 0%, transparent 60%),
+      var(--paper);
+    font-family:var(--sans);line-height:1.55;
+  }
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--navy);outline-offset:3px;border-radius:4px}
+
+  .wrap{max-width:1200px;margin:0 auto;padding:0 22px}
+
+  /* masthead, like a club journal */
+  .masthead{border-bottom:1px solid var(--rule);background:var(--paper-2)}
+  .masthead .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:14px 22px}
+  .wordmark{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:.01em;text-decoration:none;display:flex;align-items:baseline;gap:10px}
+  .wordmark .dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block}
+  .wordmark small{font-family:var(--sans);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .masthead nav{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
+  .masthead nav a{font-size:13px;text-decoration:none;color:var(--muted);padding:7px 12px;border-radius:4px}
+  .masthead nav a:hover{color:var(--navy);background:#123a4d0d}
+  .masthead nav a[aria-current]{color:#fff;background:var(--navy)}
+
+  .layout{display:grid;grid-template-columns:220px 1fr;gap:40px;padding:36px 0 50px}
+
+  /* left rail */
+  .rail{position:sticky;top:22px;align-self:start}
+  .rail h2{font-family:var(--sans);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+  .rail ul{list-style:none;margin:0 0 26px;padding:0}
+  .rail li a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px}
+  .rail li a span{font-family:var(--mono);font-size:11.5px;color:var(--gold)}
+  .rail li a:hover{color:var(--navy)}
+  .rail .card-aside{background:var(--paper-2);border:1px solid var(--rule);border-radius:6px;padding:14px}
+  .rail .card-aside p{margin:0 0 8px;font-size:12.5px;color:var(--muted)}
+  .rail .card-aside code{font-family:var(--mono);font-size:11.5px;color:var(--navy);word-break:break-all}
+
+  /* hero: a lead story, set like print */
+  .lead{border-bottom:2px solid var(--ink);padding-bottom:26px;margin-bottom:30px}
+  .kicker{font-family:var(--sans);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin:0 0 10px}
+  .lead h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,4.6vw,50px);line-height:1.08;margin:0 0 14px;letter-spacing:-.01em}
+  .lead p{margin:0;font-size:16px;color:#3c4d55;max-width:60ch}
+  .byline{margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+
+  /* QSL card grid — the signature of this design */
+  .qsl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px;margin:0 0 34px}
+  .qsl{
+    position:relative;background:var(--paper-2);border:1px solid var(--rule);border-radius:5px;
+    padding:18px 18px 16px;box-shadow:0 1px 0 #00000008,0 8px 22px -18px #1b2b3466;
+    text-decoration:none;display:block;
+  }
+  .qsl::after{content:"";position:absolute;inset:6px;border:1px solid #efe6d3;border-radius:3px;pointer-events:none}
+  .qsl .cs{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:.04em;color:var(--navy);display:block}
+  .qsl .who{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .qsl .grid-no{font-family:var(--mono);font-size:11px;color:var(--gold);margin-top:10px;display:block;letter-spacing:.08em}
+  .qsl .stamp{
+    position:absolute;top:12px;right:12px;width:34px;height:40px;border:1px dashed var(--red);
+    border-radius:2px;display:grid;place-items:center;font-family:var(--serif);font-size:15px;color:var(--red);
+    transform:rotate(4deg);background:#b3382c08;
+  }
+  .qsl:hover{border-color:var(--navy)}
+
+  /* two-column lower section */
+  .cols{display:grid;grid-template-columns:1.25fr .95fr;gap:34px}
+  section h2.sec{font-family:var(--serif);font-size:21px;font-weight:600;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid var(--rule)}
+
+  .bulletin{display:grid;grid-template-columns:92px 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--rule)}
+  .bulletin:last-child{border-bottom:0}
+  .bulletin .date{font-family:var(--mono);font-size:11px;color:var(--muted);padding-top:3px;letter-spacing:.04em}
+  .bulletin h3{margin:0 0 4px;font-size:15.5px;font-weight:600}
+  .bulletin p{margin:0;font-size:13.5px;color:#465861}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 6px;border-bottom:1px solid var(--rule)}
+  th{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td.cs{font-family:var(--mono);font-weight:600;color:var(--navy);white-space:nowrap}
+  .pill{display:inline-block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:99px;border:1px solid}
+  .pill.ok{color:#1d6b3f;border-color:#1d6b3f44;background:#1d6b3f0f}
+  .pill.part{color:#8a5a0a;border-color:#8a5a0a44;background:#c08a2e14}
+  .pill.rej{color:var(--red);border-color:#b3382c44;background:#b3382c0d}
+
+  .note{background:var(--paper-2);border:1px solid var(--rule);border-left:3px solid var(--gold);border-radius:4px;padding:14px 16px;font-size:13.5px;color:#465861}
+
+  footer{border-top:1px solid var(--rule);background:var(--paper-2)}
+  footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:20px 22px;font-size:12.5px;color:var(--muted)}
+  footer code{font-family:var(--mono);color:var(--navy)}
+
+  @media (max-width:880px){
+    .layout{grid-template-columns:1fr;gap:26px;padding-top:24px}
+    .rail{position:static}
+    .rail ul{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+    .cols{grid-template-columns:1fr;gap:28px}
+    .masthead nav{margin-left:0;width:100%}
+    th:nth-child(1),td:nth-child(1){display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <a class="wordmark" href="#"><span class="dot" aria-hidden="true"></span>HAMNET RADIO BBS <small>Madrid</small></a>
+    <nav aria-label="Main">
+      <a href="#" aria-current="page">Front page</a>
+      <a href="#">Bulletins</a>
+      <a href="#">Boards</a>
+      <a href="#">Directory</a>
+      <a href="#">APRS</a>
+      <a href="#">Profile</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="layout">
+
+    <aside class="rail">
+      <h2>Boards</h2>
+      <ul>
+        <li><a href="#">General <span>184</span></a></li>
+        <li><a href="#">Antennas <span>96</span></a></li>
+        <li><a href="#">APRS &amp; Packet <span>71</span></a></li>
+        <li><a href="#">Nets <span>61</span></a></li>
+      </ul>
+      <div class="card-aside">
+        <p>Also reachable over SSH</p>
+        <code>ssh -p 2222 bbs@44.27.132.79</code>
+      </div>
+    </aside>
+
+    <main>
+      <article class="lead">
+        <p class="kicker">Bulletin · Operating notes</p>
+        <h1>The Thursday net moves to 20:00</h1>
+        <p>Same repeater, same 2 m channel, an hour later — chosen so the mobile stations can check in on the way home. The net controller asked for reports from anyone running a beam, and for a show of hands on the 70 cm linked machine.</p>
+        <p class="byline">Posted 10 November 2026 by EA7KLK</p>
+      </article>
+
+      <h2 class="sec">Operators on file</h2>
+      <div class="qsl-grid">
+        <a class="qsl" href="#"><span class="stamp" aria-hidden="true">QSL</span><span class="cs">EA7KLK</span><span class="who">Volker · FT-817</span><span class="grid-no">IM77AH · registered 2026-07-08</span></a>
+        <a class="qsl" href="#"><span class="stamp" aria-hidden="true">QSL</span><span class="cs">EA1ABC</span><span class="who">Ana · IC-7300</span><span class="grid-no">IN80DO · registered 2026-07-10</span></a>
+        <a class="qsl" href="#"><span class="stamp" aria-hidden="true">QSL</span><span class="cs">DN9RZ</span><span class="who">Ralf · KX2</span><span class="grid-no">JO31 · registered 2026-08-04</span></a>
+        <a class="qsl" href="#"><span class="stamp" aria-hidden="true">QSL</span><span class="cs">YO8SDE</span><span class="who">Sorin · FT-991</span><span class="grid-no">KN37 · registered 2026-11-10</span></a>
+      </div>
+
+      <div class="cols">
+        <section>
+          <h2 class="sec">Latest bulletins</h2>
+          <div class="bulletin"><div class="date">10 Nov</div><div><h3>Repeater ED4YBA back on air</h3><p>Duplexer serviced and the desense is gone. Reports welcome.</p></div></div>
+          <div class="bulletin"><div class="date">08 Nov</div><div><h3>Winter antenna work party</h3><p>Saturday from 09:00 at the club shack. Bring gloves and a metre of coax.</p></div></div>
+          <div class="bulletin"><div class="date">02 Nov</div><div><h3>APRS igate moved</h3><p>New filter covers the whole province; no change needed at your end.</p></div></div>
+        </section>
+
+        <section>
+          <h2 class="sec">APRS traffic</h2>
+          <table>
+            <thead><tr><th scope="col">From</th><th scope="col">Message</th><th scope="col">Ack</th></tr></thead>
+            <tbody>
+              <tr><td class="cs">EA7KLK</td><td>Net tonight 20:00, ED4YBA</td><td><span class="pill ok">Acked</span></td></tr>
+              <tr><td class="cs">DN9RZ</td><td>WX station back online</td><td><span class="pill part">Partial</span></td></tr>
+              <tr><td class="cs">TG5ALY</td><td>Test via igate</td><td><span class="pill rej">Rejected</span></td></tr>
+              <tr><td class="cs">VE7TIN</td><td>Skeds this week?</td><td><span class="pill ok">Acked</span></td></tr>
+            </tbody>
+          </table>
+          <p class="note" style="margin-top:16px">Acknowledgements are sent by the SSH worker, not this page. If a message shows <em>partial</em>, one part of a multipart packet went unanswered.</p>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>HAMNET RADIO BBS · OpenSSH <code>2222</code> · HamNet <code>44.27.132.79</code></span>
+    <span>Mockup 2 of 4 — “QSL Desk”</span>
+  </div>
+</footer>
+
+</body>
+</html>

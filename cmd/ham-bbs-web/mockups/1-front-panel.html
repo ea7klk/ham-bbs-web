@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 1 — Front Panel · HAMNET RADIO BBS</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#080c0e; --panel:#10181b; --panel-2:#16222600; --line:#22343a;
+    --ink:#e7f2ee; --muted:#8ba39c; --phosphor:#48e0a4; --amber:#ffb457;
+    --red:#ff6b5e;
+    --mono: ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans: ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:
+      radial-gradient(1200px 500px at 12% -12%, #0f2a26 0%, transparent 60%),
+      radial-gradient(900px 420px at 92% 0%, #1a1710 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); line-height:1.5;
+  }
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--phosphor); outline-offset:3px; border-radius:6px}
+
+  .shell{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  /* ---- top bar: reads like the front of a rig ---- */
+  .topbar{border-bottom:1px solid var(--line); background:linear-gradient(180deg,#0d1416,#0a1012);}
+  .topbar .shell{display:flex;align-items:center;gap:18px;min-height:72px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px}
+  .brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+  .led{width:10px;height:10px;border-radius:50%;background:var(--phosphor);box-shadow:0 0 0 3px #48e0a41f,0 0 14px var(--phosphor)}
+  .brand b{font-family:var(--mono);font-size:14px;letter-spacing:.18em;text-transform:uppercase}
+  .brand span{display:block;font-size:11px;color:var(--muted);letter-spacing:.08em;margin-top:2px}
+  nav{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+  nav a{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    text-decoration:none;color:var(--muted);padding:8px 11px;border:1px solid transparent;border-radius:6px;
+  }
+  nav a:hover{color:var(--ink);border-color:var(--line);background:#ffffff07}
+  nav a[aria-current]{color:#08120f;background:var(--phosphor);font-weight:700}
+
+  /* ---- status strip: the S-meter row ---- */
+  .status{border-bottom:1px solid var(--line);background:#0b1215}
+  .status .shell{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:0}
+  .cell{padding:16px 0 16px 18px;border-left:1px solid var(--line)}
+  .cell:first-child{border-left:0;padding-left:0}
+  .cell dt{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+  .cell dd{margin:0;font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:.02em}
+  .cell dd small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:.08em}
+  .meter{display:flex;gap:3px;margin-top:8px}
+  .meter i{height:6px;flex:1;border-radius:1px;background:#1d2f33}
+  .meter i.on{background:var(--phosphor)}
+  .meter i.hot{background:var(--amber)}
+
+  /* ---- hero ---- */
+  .hero{padding:44px 0 30px;display:grid;grid-template-columns:1.35fr .9fr;gap:40px;align-items:center}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);margin:0 0 14px}
+  h1{margin:0;font-size:clamp(30px,5vw,52px);line-height:1.04;letter-spacing:-.02em;font-weight:800}
+  h1 em{font-style:normal;color:var(--phosphor)}
+  .lede{margin:16px 0 0;color:var(--muted);max-width:52ch;font-size:15.5px}
+  .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+  .btn{
+    font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+    text-decoration:none;padding:12px 18px;border-radius:7px;border:1px solid var(--phosphor);
+    background:var(--phosphor);color:#06110d;
+  }
+  .btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn:hover{filter:brightness(1.06)}
+  .btn.ghost:hover{border-color:var(--phosphor);color:var(--phosphor)}
+
+  /* waterfall: a signal trace, drawn with gradients only */
+  .scope{
+    aspect-ratio:4/3;border:1px solid var(--line);border-radius:10px;position:relative;overflow:hidden;
+    background:
+      repeating-linear-gradient(90deg,#ffffff08 0 1px,transparent 1px 34px),
+      repeating-linear-gradient(0deg,#ffffff08 0 1px,transparent 1px 34px),
+      linear-gradient(160deg,#0c1a1a,#0a1214 65%);
+    display:grid;place-items:end stretch;padding:16px;
+  }
+  .trace{display:flex;align-items:flex-end;gap:3px;height:58%}
+  .trace i{flex:1;background:linear-gradient(180deg,var(--phosphor),#1c6a52);border-radius:1px 1px 0 0;opacity:.85}
+  .trace i:nth-child(7n){background:linear-gradient(180deg,var(--amber),#6b4413)}
+  .scope .tag{position:absolute;top:12px;left:14px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+  .scope .freq{position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:12px;color:var(--phosphor)}
+
+  /* ---- content ---- */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;padding-bottom:12px}
+  .card{
+    background:linear-gradient(180deg,#0f191c,#0c1416);border:1px solid var(--line);border-radius:10px;padding:18px;
+  }
+  .card h2{margin:0 0 14px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .span-4{grid-column:span 4} .span-5{grid-column:span 5} .span-7{grid-column:span 7} .span-8{grid-column:span 8} .span-12{grid-column:span 12}
+
+  .board{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:11px 0;border-top:1px dashed #1d2c31;text-decoration:none}
+  .board:first-of-type{border-top:0}
+  .board b{font-weight:600;font-size:14.5px}
+  .board small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .board .n{font-family:var(--mono);font-size:12px;color:var(--phosphor);white-space:nowrap}
+  .board:hover b{color:var(--phosphor)}
+
+  .bulletin{padding:12px 0;border-top:1px dashed #1d2c31}
+  .bulletin:first-of-type{border-top:0;padding-top:0}
+  .bulletin h3{margin:0 0 4px;font-size:15px}
+  .bulletin p{margin:0;color:var(--muted);font-size:13.5px}
+  .stamp{font-family:var(--mono);font-size:11px;color:#647d77;letter-spacing:.06em}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #16262a;vertical-align:top}
+  th{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td.cs{font-family:var(--mono);font-weight:600;color:var(--phosphor);white-space:nowrap}
+  td.msg{color:#c9dad4}
+  .ack{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:99px;border:1px solid}
+  .ack.ok{color:var(--phosphor);border-color:#48e0a455;background:#48e0a412}
+  .ack.rej{color:var(--red);border-color:#ff6b5e55;background:#ff6b5e12}
+  .ack.part{color:var(--amber);border-color:#ffb45755;background:#ffb45712}
+
+  .dir{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .op{border:1px solid var(--line);border-radius:8px;padding:11px 12px;background:#0b1416}
+  .op b{font-family:var(--mono);font-size:13px;color:var(--phosphor);letter-spacing:.04em}
+  .op small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+
+  footer{border-top:1px solid var(--line);margin-top:26px;background:#070b0d}
+  footer .shell{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:22px 20px;color:var(--muted);font-size:12.5px}
+  footer code{font-family:var(--mono);color:var(--phosphor)}
+
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;gap:26px;padding-top:30px}
+    .scope{aspect-ratio:16/9;max-height:220px}
+    .status .shell{grid-template-columns:1fr 1fr}
+    .cell{padding:12px 0 12px 14px}
+    .cell:nth-child(odd){border-left:0;padding-left:0}
+    .span-4,.span-5,.span-7,.span-8{grid-column:span 12}
+    .dir{grid-template-columns:1fr}
+    table{font-size:12.5px}
+    th:nth-child(2),td:nth-child(2){display:none}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .trace i{animation:rise .9s cubic-bezier(.2,.7,.3,1) both}
+    .trace i:nth-child(2n){animation-delay:.04s}
+    .trace i:nth-child(3n){animation-delay:.08s}
+    @keyframes rise{from{transform:scaleY(.05);transform-origin:bottom}to{transform:scaleY(1)}}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="shell">
+    <a class="brand" href="#"><span class="led" aria-hidden="true"></span>
+      <span><b>HAMNET RADIO BBS</b><span>Madrid · 40.4°N 3.7°W · since 1998</span></span>
+    </a>
+    <nav aria-label="Main">
+      <a href="#" aria-current="page">Home</a>
+      <a href="#">Bulletins</a>
+      <a href="#">Boards</a>
+      <a href="#">Directory</a>
+      <a href="#">APRS</a>
+      <a href="#">Profile</a>
+    </nav>
+  </div>
+</header>
+
+<div class="status" role="region" aria-label="Station status">
+  <div class="shell">
+    <dl class="cell"><dt>Operators on file</dt><dd>128 <small>licences</small></dd></dl>
+    <dl class="cell"><dt>Signal</dt><dd>S9+ <small>20 dB</small>
+      <div class="meter" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="hot"></i><i></i><i></i></div>
+    </dd></dl>
+    <dl class="cell"><dt>APRS heard today</dt><dd>37</dd></dl>
+    <dl class="cell"><dt>Threads</dt><dd>412 <small>across 6 boards</small></dd></dl>
+  </div>
+</div>
+
+<main class="shell">
+  <section class="hero">
+    <div>
+      <p class="eyebrow">Packet-era experiment · still on the air</p>
+      <h1>Notes, nets and traffic<br><em>for radio operators.</em></h1>
+      <p class="lede">A bulletin board that remembers what a shack actually needs: who is local, what the net is doing, and which messages still need an acknowledgement. Reach it over SSH from anywhere in HamNet, or read it here.</p>
+      <div class="cta">
+        <a class="btn" href="#">Open the boards</a>
+        <a class="btn ghost" href="#">ssh -p 2222 bbs@44.27.132.79</a>
+      </div>
+    </div>
+    <div class="scope" aria-hidden="true">
+      <span class="tag">Waterfall · 2 m</span>
+      <span class="freq">144.8000</span>
+      <div class="trace">
+        <i style="height:18%"></i><i style="height:34%"></i><i style="height:22%"></i><i style="height:48%"></i>
+        <i style="height:64%"></i><i style="height:38%"></i><i style="height:72%"></i><i style="height:30%"></i>
+        <i style="height:55%"></i><i style="height:88%"></i><i style="height:44%"></i><i style="height:26%"></i>
+        <i style="height:61%"></i><i style="height:35%"></i><i style="height:49%"></i><i style="height:20%"></i>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card span-4">
+      <h2>Message boards</h2>
+      <a class="board" href="#"><span><b>General</b><small>General local messages</small></span><span class="n">184 →</span></a>
+      <a class="board" href="#"><span><b>Antennas</b><small>Builds, SWR, and the neighbours</small></span><span class="n">96 →</span></a>
+      <a class="board" href="#"><span><b>APRS &amp; Packet</b><small>Digipeaters, igates, beacons</small></span><span class="n">71 →</span></a>
+      <a class="board" href="#"><span><b>Nets</b><small>Weekly schedules and check-ins</small></span><span class="n">61 →</span></a>
+    </section>
+
+    <section class="card span-4">
+      <h2>Bulletins</h2>
+      <article class="bulletin">
+        <h3>Thursday net moves to 20:00</h3>
+        <p>Same repeater, later start so the /M stations can join.</p>
+        <span class="stamp">2026-11-10 · EA7KLK</span>
+      </article>
+      <article class="bulletin">
+        <h3>Repeater ED4YBA back on air</h3>
+        <p>Duplexer serviced. Reports welcome on the Antennas board.</p>
+        <span class="stamp">2026-11-08 · EA1ABC</span>
+      </article>
+    </section>
+
+    <section class="card span-4">
+      <h2>Station directory</h2>
+      <div class="dir">
+        <div class="op"><b>EA7KLK</b><small>Volker · IM77ah</small></div>
+        <div class="op"><b>EA1ABC</b><small>Ana · IN80do</small></div>
+        <div class="op"><b>DN9RZ</b><small>Ralf · JO31</small></div>
+        <div class="op"><b>YO8SDE</b><small>Sorin · KN37</small></div>
+      </div>
+    </section>
+
+    <section class="card span-8">
+      <h2>APRS traffic</h2>
+      <table>
+        <caption class="visually-hidden" style="position:absolute;left:-9999px">Recent APRS messages</caption>
+        <thead><tr><th scope="col">Time</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Message</th><th scope="col">Ack</th></tr></thead>
+        <tbody>
+          <tr><td class="stamp">09:41</td><td class="cs">EA7KLK</td><td>APRS</td><td class="msg">Net tonight 20:00, ED4YBA</td><td><span class="ack ok">Acked</span></td></tr>
+          <tr><td class="stamp">09:12</td><td class="cs">DN9RZ</td><td>EA1ABC</td><td class="msg">WX station back online at the club</td><td><span class="ack part">Partial</span></td></tr>
+          <tr><td class="stamp">08:58</td><td class="cs">TG5ALY</td><td>EA7KLK</td><td class="msg">Test message via igate, no reply needed</td><td><span class="ack rej">Rejected</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <aside class="card span-4">
+      <h2>Your station</h2>
+      <p style="margin:0 0 10px;font-family:var(--mono);font-size:26px;color:var(--phosphor)">EA7KLK</p>
+      <p class="stamp" style="margin:0 0 14px">Registered 2026-07-08 · last seen 09:41 today</p>
+      <p style="margin:0;color:var(--muted);font-size:13.5px">APRS enabled · beacons on login. Locator IM77ah, rig FT-817.</p>
+      <div class="cta"><a class="btn ghost" href="#">Edit profile</a></div>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  <div class="shell">
+    <span>HAMNET RADIO BBS · OpenSSH on port <code>2222</code> · HamNet <code>44.27.132.79</code></span>
+    <span>Mockup 1 of 4 — “Front Panel”</span>
+  </div>
+</footer>
+
+</body>
+</html>
