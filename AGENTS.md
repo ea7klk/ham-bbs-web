@@ -76,6 +76,10 @@ everyone out (acceptable for a single-replica deployment).
    `dbAPRSSent`, `dbAPRSSentPart`, `dbAPRSReceived` are byte-for-byte the same
    structs as `simple-ham-bbs/bbs/cmd/bbs/database.go`. Do not rename fields,
    add columns, or change tags here alone.
+   `dbUser.Registered` is write-once: set it at creation, never on update. Both
+   applications backfill it from `first_seen` on startup. A handler that builds
+   a fresh `dbUser` from a form must carry `Registered` and `FirstSeen` over
+   from the loaded row before saving, or the Save blanks them.
 2. **DSN.** `?_busy_timeout=5000&_journal_mode=WAL&_txlock=immediate`. The
    `_txlock=immediate` part is the cross-process guarantee: read-then-write
    transactions take the write lock at `BEGIN`.

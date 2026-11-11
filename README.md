@@ -28,6 +28,10 @@ in its security review are enforced here too, against the same rows:
 - **`BBS_SYSOPS` is a bootstrap grant only.** It promotes an account only while
   the database has no enabled sysop; afterwards the configured list has no
   authority and a configured callsign can be demoted like any other.
+- **The registration date is write-once.** `Registered` is set when the account
+  is created and never changes, unlike `FirstSeen`/`LastSeen`. Both
+  applications backfill it from `first_seen` on startup for older accounts, and
+  the sysop user list shows it beside the account's last connection.
 - **Writes are row-level and transactional**, with the database opened
   `?_busy_timeout=5000&_journal_mode=WAL&_txlock=immediate`, so a web write and
   an SSH write cannot interleave into a lost update.

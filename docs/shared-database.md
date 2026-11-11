@@ -51,6 +51,13 @@ window, or one surface will write rows the other cannot use:
 - **Sysop bootstrap.** `BBS_SYSOPS` grants the role only while no enabled sysop
   exists. `isSysop` answers from the stored row alone on both sides.
 - **Timestamps.** `2006-01-02 15:04 UTC` strings, written by `now()`.
+- **Registration date.** `dbUser.Registered` is written once, at account
+  creation, and never updated afterwards — unlike `FirstSeen`/`LastSeen`, which
+  both move. `Registered` and `FirstSeen` are set to the same stamp when the
+  account is created. Both applications backfill the column from `first_seen`
+  on startup for accounts that predate it, idempotently, and leave rows with no
+  `first_seen` empty rather than inventing a date. Do not "refresh" it on a
+  profile edit, a login, or a sysop change.
 
 ## Who runs what
 
