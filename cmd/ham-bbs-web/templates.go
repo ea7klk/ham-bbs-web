@@ -208,7 +208,12 @@ const templates = `{{define "layout_start"}}
     .btn.danger:hover { filter: brightness(1.1); }
     .btn.small { padding: 7px 10px; font-size: 9.5px; letter-spacing: .1em; }
     .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
-    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--rule-hi); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .switch { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .switch form { margin: 0; }
+    .switch-state { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+    .switch-state b { font-weight: 700; }
+    .switch-state b.on { color: var(--lime); }
+    .switch-state b.off { color: var(--amber); }
 
     /* ---- forms ---- */
     label { display: block; margin-bottom: 6px; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
@@ -478,9 +483,25 @@ const templates = `{{define "layout_start"}}
 {{if .Data.ID}}<form method="post" action="/boards/{{.Data.ID}}/delete" class="mt"><button class="btn danger">{{tr .Lang "delete_button"}}</button></form>{{end}}
 {{template "layout_end" .}}{{end}}
 
+{{define "aprs_toggle"}}
+{{/* One control, used wherever APRS can be switched on or off. The button names
+     the action it performs rather than the state, so a single click is never
+     ambiguous, and the hidden field carries the value to write. */}}
+<div class="switch">
+  <span class="switch-state">{{tr .Lang "aprs_status"}}:
+    <b class="{{if .User.EnableAPRS}}on{{else}}off{{end}}">{{if .User.EnableAPRS}}{{tr .Lang "enabled"}}{{else}}{{tr .Lang "disabled"}}{{end}}</b>
+  </span>
+  <form method="post" action="/aprs/toggle">
+    <input type="hidden" name="enable_aprs" value="{{if .User.EnableAPRS}}false{{else}}true{{end}}">
+    <input type="hidden" name="return_to" value="{{.Path}}">
+    <button class="btn {{if .User.EnableAPRS}}secondary{{end}}" type="submit">{{if .User.EnableAPRS}}{{tr .Lang "web_aprs_disable_action"}}{{else}}{{tr .Lang "web_aprs_enable_action"}}{{end}}</button>
+  </form>
+</div>
+{{end}}
+
 {{define "aprs"}}
 {{template "layout_start" .}}
-<div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "menu_aprs"}}</h1></div><div class="pageactions"><span class="chip">{{tr .Lang "aprs_enable_title"}}: {{if .User.EnableAPRS}}{{tr .Lang "enabled"}}{{else}}{{tr .Lang "disabled"}}{{end}}</span></div></div>
+<div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "menu_aprs"}}</h1></div><div class="pageactions">{{template "aprs_toggle" .}}</div></div>
 <div class="tiles">
   <a class="tile" href="/aprs/received"><h2>{{tr .Lang "aprs_received_messages"}}</h2><p class="metric">{{.Data.Received.Total}}</p><span class="meta">{{tr .Lang "web_messages_total"}}</span></a>
   <a class="tile" href="/aprs/sent"><h2>{{tr .Lang "aprs_sent_messages"}}</h2><p class="metric">{{.Data.Sent.Total}}</p><span class="meta">{{tr .Lang "web_messages_total"}}</span></a>
@@ -513,8 +534,9 @@ const templates = `{{define "layout_start"}}
 </form>
 <div class="strip mt-xl"><h2>{{tr .Lang "aprs_enable_title"}}</h2></div>
 <section class="card mt wide">
-  <form method="post" action="/aprs/toggle" class="row"><label for="aprs-enable">{{tr .Lang "enable_aprs"}}: {{.User.Callsign}}</label><select id="aprs-enable" name="enable_aprs" class="w-narrow"><option value="false">false</option><option value="true" {{if .User.EnableAPRS}}selected{{end}}>true</option></select><button class="btn">{{tr .Lang "save_button"}}</button></form>
-  <p class="quiet mt-sm">{{tr .Lang "web_aprs_worker_note"}}</p>
+  <div class="row between">{{template "aprs_toggle" .}}</div>
+  <p class="quiet mt">{{tr .Lang "web_aprs_toggle_help"}}</p>
+  <p class="quiet">{{tr .Lang "web_aprs_worker_note"}}</p>
 </section>
 {{template "layout_end" .}}
 {{end}}
