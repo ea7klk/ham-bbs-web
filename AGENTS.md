@@ -51,8 +51,16 @@ no ORM layer beyond GORM; the pieces are:
 - `handlers_*.go` — one file per area: auth/profile, boards/messages, bulletins,
   APRS, admin. Handlers take the authenticated `*dbUser` where the route
   requires one.
-- `threads.go` — message creation: sanitising, depth cap, board materialisation,
-  sibling position, all inside one immediate transaction.
+- `threads.go` — message creation and editing: sanitising, depth cap, board
+  materialisation, sibling position, all inside one immediate transaction.
+- `accounts.go` — activation codes, link tokens, the email-change pair, the
+  per-address registration meter, and the daily cleanup of those tables.
+- `handlers_account.go` — the public pages that redeem them (`/activate`,
+  `/forgot`, `/reset`, `/email/confirm`) plus `/about`, `/resources` and the
+  sysop message editor.
+- `mail.go`, `mail_content.go` — SMTP configuration and the four-language message
+  bodies. Same environment variables as the SSH BBS, so one SMTP setup serves
+  both.
 - `sanitize.go` — the text rule shared with the SSH BBS. A change here is a
   change to the shared contract; port it to `simple-ham-bbs` too.
 - `ratelimit.go` — in-memory login throttle (five failures per account and
@@ -102,6 +110,16 @@ everyone out (acceptable for a single-replica deployment).
    a success clears the counter. Do not key it on the peer address alone — the
    app sits behind a reverse proxy, and one shared bucket would let any caller
    lock out the whole site.
+9. **Token formats are a wire format between the two applications.** A reset
+   link the SSH BBS mails must be redeemable by `claimToken` here, and a code
+   issued here must be verifiable there. Changing the hash input, the purpose
+   strings, the alphabet or a TTL is a change to both repositories, and it
+   invalidates any link already in someone's inbox.
+10. **Activation is checked after the password.** An unactivated account gets no
+    session, but it is not told the account exists before the password checks
+    out either. Registration does not activate: with SMTP configured it mails a
+    code, and without SMTP it marks the account active rather than locking the
+    caller out of an unconfigured deployment.
 
 ## Configuration
 
@@ -111,6 +129,10 @@ Environment variables, with defaults in `config.go` and `.env.example`:
   `BBS_DB_FILE` (`$BBS_DATA_DIR/bbs.sqlite`), `BBS_TRANSLATIONS_FILE`.
 - `BBS_NAME`, `BBS_SYSOP`, `BBS_SYSOPS`, `BBS_LOCATION`, `BBS_WELCOME_TOPIC`.
 - `APRS_IS_SERVER`, `APRS_IS_PORT` for outbound APRS sends.
+- `BBS_SMTP_HOST`, `BBS_SMTP_PORT`, `BBS_SMTP_SECURITY`, `BBS_SMTP_USERNAME`,
+  `BBS_SMTP_PASSWORD`, `BBS_SMTP_FROM`, `BBS_SMTP_FROM_NAME`, `BBS_WEB_BASE_URL`
+  for outbound mail and for the links inside it. These are the SSH BBS's own
+  variables; leaving them unset disables mail and skips activation.
 - `BBS_GUEST_MODE`, `BBS_USER_PASSWORD` are consumed by the SSH BBS image, not
   by this one; they are in `.env.example` because the compose stack is shared.
 

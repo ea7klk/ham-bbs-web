@@ -36,10 +36,21 @@ A change to any of these must be made in both repositories, in the same release
 window, or one surface will write rows the other cannot use:
 
 - **Schema.** `dbUser`, `dbBulletin`, `dbBoard`, `dbMessage`, `dbAPRSSent`,
-  `dbAPRSSentPart`, `dbAPRSReceived` are declared identically in
-  `simple-ham-bbs/bbs/cmd/bbs/database.go` and in `models.go` here. The SSH BBS
-  additionally owns `dbAuthFailure` (`db_auth_failures`); the web app never
-  reads or writes it.
+  `dbAPRSSentPart`, `dbAPRSReceived`, `dbActivation`, `dbToken`,
+  `dbRegistration` and `dbSetting` are declared identically in
+  `simple-ham-bbs/bbs/cmd/bbs/` and in `models.go` here. Both applications read
+  and write all of them: a code or link issued by one is redeemed by the other.
+  `dbAuthFailure` (`db_auth_failures`) is the exception — it is the SSH BBS's
+  own cross-process counter, and the web app keeps its throttle in memory.
+- **Account tokens.** A link token is `base64.RawURLEncoding` of 32 random bytes;
+  the database holds only `sha256` hex of it. An activation code is four
+  characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, stored as
+  `sha256(callsign + "|" + code)`. Purposes are `password_reset`,
+  `email_change_old` and `email_change_new`; an email change pairs two tokens
+  under one `change_id` and applies only when both are consumed. TTLs: 2 hours
+  for a reset, 24 hours for a code or an email change.
+- **Registration metering.** `db_registrations` counts accounts per client
+  address: five per hour, in both applications.
 - **Password format.** `pbkdf2_sha256$iterations$salt$digest` with 200,000
   iterations, base64 salt and digest.
 - **Reply nesting.** `maxReplyDepth = 5` on both sides. The SSH BBS enforces it

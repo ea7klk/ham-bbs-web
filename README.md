@@ -28,6 +28,14 @@ in its security review are enforced here too, against the same rows:
 - **`BBS_SYSOPS` is a bootstrap grant only.** It promotes an account only while
   the database has no enabled sysop; afterwards the configured list has no
   authority and a configured callsign can be demoted like any other.
+- **An account is activated by email.** With SMTP configured, registration mails
+  a four-character code and the account cannot sign in until it is entered; the
+  reset and email-change links the SSH BBS mails land on `/reset` and
+  `/email/confirm` here. The web app sends its own activation and reset mail
+  using the same SMTP variables, so both surfaces behave identically.
+- **Self-service account changes are metered and confirmed.** Five accounts per
+  address per hour, an eight-character password minimum, and an email change
+  that needs confirmation from both the old and the new address.
 - **The registration date is write-once.** `Registered` is set when the account
   is created and never changes, unlike `FirstSeen`/`LastSeen`. Both
   applications backfill it from `first_seen` on startup for older accounts, and
