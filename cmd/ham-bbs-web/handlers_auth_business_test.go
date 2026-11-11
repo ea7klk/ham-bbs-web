@@ -18,8 +18,8 @@ func validUserForm() url.Values {
 		"enable_aprs":     {"true"},
 		"qth":             {" Sevilla "},
 		"rig":             {" VHF "},
-		"new_password":    {"secret"},
-		"verify_password": {"secret"},
+		"new_password":    {"secret123"},
+		"verify_password": {"secret123"},
 	}
 }
 
@@ -33,7 +33,7 @@ func TestUserFromFormValidation(t *testing.T) {
 	if user.Callsign != "EA7KLK" || user.FullName != "Test Operator" || user.Maidenhead != "IM77ah" || user.Language != "es" || !user.EnableAPRS || user.QTH != "Sevilla" || user.Rig != "VHF" {
 		t.Fatalf("parsed user = %#v", user)
 	}
-	if !verifyPassword("secret", user.PasswordHash) {
+	if !verifyPassword("secret123", user.PasswordHash) {
 		t.Fatal("parsed password was not hashed correctly")
 	}
 
@@ -104,7 +104,7 @@ func TestRegisterLoginAndProfileHandlers(t *testing.T) {
 		t.Fatalf("wrong login response = %d %q", wrong.Code, wrong.Body.String())
 	}
 	sessionsBefore := len(s.sessions)
-	login := invokeHandler(s.loginPost, formRequest(http.MethodPost, "/login", url.Values{"callsign": {"ea7klk"}, "password": {"secret"}}))
+	login := invokeHandler(s.loginPost, formRequest(http.MethodPost, "/login", url.Values{"callsign": {"ea7klk"}, "password": {"secret123"}}))
 	assertRedirect(t, login, "/")
 	if len(s.sessions) != sessionsBefore+1 {
 		t.Fatalf("successful login did not create a session: before=%d after=%d", sessionsBefore, len(s.sessions))

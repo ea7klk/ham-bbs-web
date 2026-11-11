@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,6 +40,15 @@ func (s *server) loginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.throttle.clear(key)
+	// Activation runs only after the password checks out, so an unactivated
+	// account cannot be claimed by whoever guesses the callsign first. The
+	// password is right, so no session is created yet: the caller is sent to the
+	// code form instead.
+	if !user.Activated {
+		s.logBBSAction(user.Callsign, "web_login_needs_activation", "address=%q", clientAddress(r))
+		http.Redirect(w, r, "/activate?callsign="+url.QueryEscape(user.Callsign), http.StatusSeeOther)
+		return
+	}
 	user.LastSeen = now()
 	s.db.Save(&user)
 	s.logBBSAction(user.Callsign, "web_login", "sysop=%t", s.isSysop(&user))
@@ -68,6 +78,20 @@ func (s *server) registerPost(w http.ResponseWriter, r *http.Request) {
 		s.view(w, r, "register", nil, map[string]any{"Callsign": callsign, "Languages": languageChoices(), "User": user}, "", s.t(user.Language, "web_duplicate_callsign"))
 		return
 	}
+	// A new account costs a PBKDF2 hash and a row, so it is metered per address
+	// exactly as the SSH BBS meters it.
+	address := clientAddress(r)
+	allowed, limitErr := s.registrationAllowed(address, time.Now())
+	if limitErr != nil {
+		s.logBBSAction(callsign, "web_registration_throttle_error", "address=%q error=%q", address, limitErr.Error())
+		s.view(w, r, "register", nil, map[string]any{"Callsign": callsign, "Languages": languageChoices(), "User": user}, "", s.t(user.Language, "registration_rate_limited"))
+		return
+	}
+	if !allowed {
+		s.logBBSAction(callsign, "web_registration_blocked", "address=%q limit=%d window=%s", address, registrationLimit, registrationWindow)
+		s.view(w, r, "register", nil, map[string]any{"Callsign": callsign, "Languages": languageChoices(), "User": user}, "", s.t(user.Language, "registration_rate_limited"))
+		return
+	}
 	user.FirstSeen = now()
 	user.LastSeen = user.FirstSeen
 	// The registration date is written once, here, and never updated again. It
@@ -77,11 +101,29 @@ func (s *server) registerPost(w http.ResponseWriter, r *http.Request) {
 	// BBS_SYSOPS is a bootstrap grant: it applies only while no enabled sysop
 	// exists, so a configured callsign registered later gets a plain account.
 	user.IsSysop = s.isBootstrapSysop(user.Callsign)
+	// Without a mail path there is no way to deliver a code, so activation is
+	// skipped rather than locking the caller out of a deployment with no SMTP.
+	// That is the same decision the SSH BBS makes.
+	needsActivation := s.mail.Enabled()
+	user.Activated = !needsActivation
 	if err := s.db.Create(&user).Error; err != nil {
 		s.view(w, r, "register", nil, map[string]any{"Callsign": callsign, "Languages": languageChoices(), "User": user}, "", err.Error())
 		return
 	}
-	s.logBBSAction(user.Callsign, "web_register", "")
+	if err := s.recordRegistration(address, time.Now()); err != nil {
+		s.logBBSAction(callsign, "web_registration_throttle_error", "address=%q error=%q", address, err.Error())
+	}
+	s.logBBSAction(user.Callsign, "web_register", "activated=%t", user.Activated)
+	if needsActivation {
+		if err := s.sendActivationCode(user); err != nil {
+			// The account exists, so the caller can request another code rather
+			// than register again.
+			s.view(w, r, "activate", nil, map[string]any{"Callsign": callsign}, "", s.t(user.Language, "activation_mail_failed"))
+			return
+		}
+		http.Redirect(w, r, "/activate?callsign="+url.QueryEscape(callsign), http.StatusSeeOther)
+		return
+	}
 	s.setSession(w, user.Callsign)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -141,9 +183,44 @@ func (s *server) profilePost(w http.ResponseWriter, r *http.Request, user *dbUse
 	if r.FormValue("new_password") == "" {
 		updated.PasswordHash = user.PasswordHash
 	}
+
+	// An address change needs two confirmations before it takes effect: one link
+	// to the current address, one to the new one. The pending address is not
+	// applied here, so a stolen session cannot redirect the account's mail.
+	emailChanged := strings.TrimSpace(updated.Email) != strings.TrimSpace(user.Email)
+	if emailChanged && s.mail.Enabled() {
+		if err := s.beginEmailChange(user.Callsign, user.Email, updated.Email, updated.Language); err != nil {
+			s.logBBSAction(user.Callsign, "web_email_change_failed", "from=%q to=%q error=%q", user.Email, updated.Email, err.Error())
+			updated.Email = user.Email
+			s.view(w, r, "profile", user, map[string]any{"Languages": languageChoices(), "Draft": updated}, "", err.Error())
+			return
+		}
+		updated.Email = user.Email
+		s.db.Save(&updated)
+		s.logBBSAction(user.Callsign, "web_profile_update", "email_change=pending")
+		http.Redirect(w, r, "/profile?msg="+url.QueryEscape(sprintfAll(s.t(updated.Language, "email_change_pending_detail"), user.Email)), http.StatusSeeOther)
+		return
+	}
+	if emailChanged {
+		// Without a mail path there is nothing to confirm with. Applying the
+		// change keeps an unconfigured deployment usable, and the log records
+		// that it was not verified.
+		s.logBBSAction(user.Callsign, "web_email_change_unverified", "from=%q to=%q reason=%q", user.Email, updated.Email, "mail is not configured")
+	}
 	s.db.Save(&updated)
 	s.logBBSAction(user.Callsign, "web_profile_update", "")
 	http.Redirect(w, r, "/profile?msg="+url.QueryEscape(s.t(updated.Language, "web_profile_saved")), http.StatusSeeOther)
+}
+
+// sprintfAll substitutes the single %s in a translated message, which is how the
+// shared translations carry a value (email_change_pending_detail names the
+// address the confirmation went to). It falls back to the format itself rather
+// than printing a Go formatting verb at a user.
+func sprintfAll(format string, values ...any) string {
+	if !strings.Contains(format, "%") {
+		return format
+	}
+	return fmt.Sprintf(format, values...)
 }
 
 func (s *server) userFromForm(r *http.Request, user dbUser, requirePassword bool) (dbUser, string) {
@@ -179,6 +256,11 @@ func (s *server) userFromForm(r *http.Request, user dbUser, requirePassword bool
 	if requirePassword || pass != "" || verify != "" {
 		if pass == "" || pass != verify {
 			return user, s.t(lang, "web_password_match")
+		}
+		// The SSH BBS rejects a short password before it hashes it; a password
+		// that one surface accepts and the other refuses is a bug, not a style.
+		if len(pass) < 8 {
+			return user, s.t(lang, "password_short")
 		}
 		user.PasswordHash = hashPassword(pass)
 	}

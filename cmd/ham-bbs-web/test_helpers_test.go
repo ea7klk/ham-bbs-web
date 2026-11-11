@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newTestServer(t *testing.T) *server {
@@ -34,6 +35,10 @@ func newTestServer(t *testing.T) *server {
 		text:     text,
 		sessions: map[string]string{},
 		throttle: newAuthThrottle(),
+		// No SMTP host, so mail is disabled and the account flows skip
+		// activation exactly as an unconfigured deployment does. A test that
+		// wants mail swaps the send function in.
+		mail: &mailer{now: time.Now},
 	}
 	// A login starts the APRS beacon in the background; let it finish before
 	// the test framework removes logDir, or a late write fails the cleanup.
@@ -45,6 +50,12 @@ func testUser(t *testing.T, s *server, user dbUser) *dbUser {
 	t.Helper()
 	if user.Language == "" {
 		user.Language = "en"
+	}
+	// A fixture stands for an account that already exists, which means it has
+	// been activated. A test that cares about activation sets this back to false
+	// and says so.
+	if !user.Activated {
+		user.Activated = true
 	}
 	if err := s.db.Create(&user).Error; err != nil {
 		t.Fatal(err)
