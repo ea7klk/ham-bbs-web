@@ -414,15 +414,13 @@ func (s *server) lookupAccount(identifier string) (dbUser, string, bool, error) 
 	if !strings.Contains(identifier, "@") {
 		return dbUser{}, "", false, nil
 	}
-	var users []dbUser
-	if err := s.db.Find(&users).Error; err != nil {
+	var byEmail dbUser
+	err = s.db.Where("email = ? COLLATE NOCASE", strings.TrimSpace(identifier)).Limit(1).Find(&byEmail).Error
+	if err != nil {
 		return dbUser{}, "", false, err
 	}
-	want := strings.ToLower(identifier)
-	for _, user := range users {
-		if strings.ToLower(strings.TrimSpace(user.Email)) == want {
-			return user, user.Callsign, true, nil
-		}
+	if byEmail.Callsign != "" {
+		return byEmail, byEmail.Callsign, true, nil
 	}
 	return dbUser{}, "", false, nil
 }

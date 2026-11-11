@@ -1,9 +1,12 @@
 package main
 
 type dbUser struct {
-	Callsign     string `gorm:"primaryKey;size:32"`
-	FullName     string
-	Email        string
+	Callsign string `gorm:"primaryKey;size:32"`
+	FullName string
+	// Email is indexed with COLLATE NOCASE, identically to the classic SSH BBS.
+	// SQLite only uses that index for a query that names the collation, so every
+	// lookup by address must say COLLATE NOCASE — see emailLookup.
+	Email        string `gorm:"index:idx_users_email_nocase,collate:nocase"`
 	Maidenhead   string
 	Language     string
 	EnableAPRS   bool

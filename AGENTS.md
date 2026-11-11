@@ -95,6 +95,8 @@ everyone out (acceptable for a single-replica deployment).
    `dbAPRSSent`, `dbAPRSSentPart`, `dbAPRSReceived` are byte-for-byte the same
    structs as `simple-ham-bbs/bbs/cmd/bbs/database.go`. Do not rename fields,
    add columns, or change tags here alone.
+   `dbUser.Email` carries a `COLLATE NOCASE` index, and every lookup by address
+   must name the collation or it scans: see `emailLookup` in `accounts.go`.
    `dbUser.Registered` is write-once: set it at creation, never on update. Both
    applications backfill it from `first_seen` on startup. A handler that builds
    a fresh `dbUser` from a form must carry `Registered` and `FirstSeen` over

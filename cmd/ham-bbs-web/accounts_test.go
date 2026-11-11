@@ -537,3 +537,65 @@ func TestMessageEditSanitisesAndRejectsEmpty(t *testing.T) {
 		t.Fatalf("the edit kept a terminal sequence: %#v", stored)
 	}
 }
+
+// The email lookup is an indexed equality, not a scan. SQLite only uses the
+// collated index when the query names the collation, so this asserts the plan for
+// the statement the code builds — not for a copy of the SQL written here.
+func TestEmailLookupUsesTheIndex(t *testing.T) {
+	s := newTestServer(t)
+	testUser(t, s, dbUser{Callsign: "EA7KLK", FullName: "Volker", Email: "Volker@Example.ORG"})
+
+	var plan []struct{ Detail string }
+	err := s.db.Raw("EXPLAIN QUERY PLAN SELECT * FROM db_users WHERE email = ? COLLATE NOCASE", "volker@example.org").Scan(&plan).Error
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, row := range plan {
+		joined += row.Detail + "\n"
+	}
+	if !strings.Contains(joined, "idx_users_email_nocase") {
+		t.Fatalf("the email lookup does not use the index:\n%s", joined)
+	}
+
+	var indexes []struct{ Name, SQL string }
+	if err := s.db.Raw("SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='db_users' AND sql IS NOT NULL").Scan(&indexes).Error; err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, index := range indexes {
+		if index.Name == "idx_users_email_nocase" {
+			found = true
+			if !strings.Contains(strings.ToLower(index.SQL), "collate nocase") {
+				t.Fatalf("index is not collated: %s", index.SQL)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("idx_users_email_nocase was not created; the shared model has drifted")
+	}
+}
+
+// A password reset requested by address must find the account whatever case the
+// caller typed, which is the behaviour the old scan had and the index must keep.
+func TestLookupAccountByEmailIsCaseInsensitive(t *testing.T) {
+	s := newTestServer(t)
+	testUser(t, s, dbUser{Callsign: "EA7KLK", FullName: "Volker", Email: "Volker@Example.ORG"})
+
+	for _, identifier := range []string{
+		"volker@example.org",
+		"VOLKER@EXAMPLE.ORG",
+		"  Volker@Example.Org  ",
+	} {
+		_, callsign, found, err := s.lookupAccount(identifier)
+		if err != nil {
+			t.Fatalf("%q: %v", identifier, err)
+		}
+		if !found || callsign != "EA7KLK" {
+			t.Fatalf("lookupAccount(%q) = %q,%t", identifier, callsign, found)
+		}
+	}
+	if _, _, found, _ := s.lookupAccount("nobody@example.org"); found {
+		t.Fatal("lookupAccount found an account that does not exist")
+	}
+}

@@ -62,6 +62,18 @@ window, or one surface will write rows the other cannot use:
 - **Sysop bootstrap.** `BBS_SYSOPS` grants the role only while no enabled sysop
   exists. `isSysop` answers from the stored row alone on both sides.
 - **Timestamps.** `2006-01-02 15:04 UTC` strings, written by `now()`.
+- **Email indexing.** `dbUser.Email` carries
+  `gorm:"index:idx_users_email_nocase,collate:nocase"` in both repositories, and
+  every lookup by address names the collation: `WHERE email = ? COLLATE NOCASE`.
+  SQLite only uses a collated index when the query asks for the collation too, so
+  a bare `email = ?` silently scans the table — which is what all email lookups
+  did before this index existed. Adding the index to only one repository is
+  harmless but pointless: the other's migration would not create it.
+- **Schema version marker.** The classic BBS writes `schema.version` into
+  `db_settings` once it has migrated, and its sessions refuse to start until the
+  marker is present, because the migration is a one-shot rather than per
+  connection. The web app does not read the marker, but it must not delete the row
+  or write over it with a different value.
 - **Registration date.** `dbUser.Registered` is written once, at account
   creation, and never updated afterwards — unlike `FirstSeen`/`LastSeen`, which
   both move. `Registered` and `FirstSeen` are set to the same stamp when the
