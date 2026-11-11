@@ -176,8 +176,12 @@ func newServer() (*server, error) {
 	}
 	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle(), mail: newMailerFromEnv()}
 	if problem := app.mail.Problem(); problem != "" {
-		// Say it once at startup rather than failing every send later.
-		log.Printf("outbound mail disabled: %s", problem)
+		// Say it once at startup rather than failing every send later, and say
+		// what it costs: without mail, registration cannot verify the address, so
+		// the account is activated immediately. The SSH BBS makes the same
+		// trade-off. Configure BBS_SMTP_HOST on both or on neither, or the two
+		// surfaces will disagree about whether an account is verified.
+		log.Printf("outbound mail disabled (%s): registrations will skip email activation", problem)
 	}
 	if err := app.seedDefaultData(); err != nil {
 		return nil, err

@@ -133,6 +133,15 @@ Environment variables, with defaults in `config.go` and `.env.example`:
   `BBS_SMTP_PASSWORD`, `BBS_SMTP_FROM`, `BBS_SMTP_FROM_NAME`, `BBS_WEB_BASE_URL`
   for outbound mail and for the links inside it. These are the SSH BBS's own
   variables; leaving them unset disables mail and skips activation.
+
+  **Configure SMTP on both surfaces or on neither.** With mail, registration is
+  not activated until the emailed code is entered. Without mail, both
+  applications activate immediately because there is no way to send a code.
+  Setting `BBS_SMTP_HOST` only on the SSH container therefore leaves the web
+  form as an unverified registration path that the terminal will not accept —
+  and the reverse leaves the terminal as a way around a web-only policy. The
+  deployment wires the same `bbs-smtp` secret into both containers for this
+  reason; keep it that way.
 - `BBS_GUEST_MODE`, `BBS_USER_PASSWORD` are consumed by the SSH BBS image, not
   by this one; they are in `.env.example` because the compose stack is shared.
 
