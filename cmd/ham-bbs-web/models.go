@@ -211,6 +211,11 @@ type aprsPagination struct {
 type aprsOverviewView struct {
 	Sent     aprsPagination
 	Received aprsPagination
+	// ThursdayGroup names the ANSRVR group, and ThursdayActive says whether the
+	// net is running, so the page can explain rather than show a button that will
+	// be refused.
+	ThursdayGroup  string
+	ThursdayActive bool
 }
 
 type aprsSentPageView struct {

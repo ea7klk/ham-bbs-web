@@ -511,8 +511,18 @@ const templates = `{{define "layout_start"}}
   <a class="tile" href="/aprs/sent"><h2>{{tr .Lang "aprs_sent_messages"}}</h2><p class="metric">{{.Data.Sent.Total}}</p><span class="meta">{{tr .Lang "web_messages_total"}}</span></a>
   <a class="tile" href="/aprs/send"><h2>{{tr .Lang "aprs_send_message"}}</h2><span class="meta">{{tr .Lang "web_send_aprs_intro"}}</span></a>
   <a class="tile" href="/aprs/bulletins"><h2>{{tr .Lang "aprs_bulletins_menu"}}</h2><span class="meta">{{tr .Lang "aprs_bulletin_window"}}</span></a>
+  <a class="tile" href="/aprs/aprsph"><h2>{{tr .Lang "aprsph_menu_title"}}</h2><span class="meta">{{tr .Lang "aprsph_menu_hint"}}</span></a>
 </div>
 
+<div class="strip"><h2>{{tr .Lang "aprs_join_aprs_thursday"}}</h2><span>ANSRVR · {{.Data.ThursdayGroup}}</span></div>
+<div class="card mt wide">
+  {{if not .Data.ThursdayActive}}<p class="quiet">{{tr .Lang "aprs_not_thursday_warning"}}</p>{{end}}
+  <div class="row mt-sm">
+    <form method="post" action="/aprs/thursday/join"><button class="btn" type="submit" {{if not .Data.ThursdayActive}}disabled{{end}}>{{tr .Lang "aprs_join_aprs_thursday"}}</button></form>
+    <form method="post" action="/aprs/thursday/keepalive"><button class="btn secondary" type="submit">{{tr .Lang "aprs_keepalive_aprs_thursday"}}</button></form>
+    <form method="post" action="/aprs/thursday/leave" onsubmit="return confirm({{printf "%q" (tr .Lang "aprs_leave_confirm")}})"><button class="btn danger" type="submit">{{tr .Lang "aprs_leave_aprs_thursday"}}</button></form>
+  </div>
+</div>
 {{template "layout_end" .}}
 {{end}}
 
@@ -550,6 +560,63 @@ const templates = `{{define "layout_start"}}
 <dt>{{tr .Lang "aprs_bulletin_times_heard"}}</dt><dd>{{.Data.Item.SeenCount}}</dd>
 <dt>{{tr .Lang "aprs_text"}}</dt><dd class="pre">{{.Data.Item.Text}}</dd>
 </dl>{{if .Data.Item.Raw}}<hr><dl class="detail-grid"><dt>{{tr .Lang "aprs_raw_packet"}}</dt><dd class="pre">{{.Data.Item.Raw}}</dd></dl>{{end}}</section>
+{{template "layout_end" .}}{{end}}
+
+{{define "aprs_aprsph"}}{{template "layout_start" .}}
+<div class="pagehead"><div><p class="kicker">APRS · {{.Data.Bot}}</p><h1>{{tr .Lang "aprsph_menu_title"}}</h1><p class="lede">{{tr .Lang "aprsph_menu_hint"}}</p></div><div class="pageactions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+
+<div class="split">
+  <div>
+    <div class="strip"><h2>{{tr .Lang "aprsph_checkin"}}</h2></div>
+    <form class="stack mt" method="post" action="/aprs/aprsph">
+      <input type="hidden" name="kind" value="checkin">
+      <div><label for="aprsph-cq">{{tr .Lang "aprsph_checkin_text"}}</label><textarea id="aprsph-cq" name="phrase" maxlength="{{.Data.Max}}" required></textarea></div>
+      <button class="btn" type="submit">{{tr .Lang "send_button"}}</button>
+    </form>
+    <form class="stack mt" method="post" action="/aprs/aprsph">
+      <input type="hidden" name="kind" value="quiet">
+      <div><label for="aprsph-net">{{tr .Lang "aprsph_checkin_text_optional"}}</label><textarea id="aprsph-net" name="phrase" maxlength="{{.Data.Max}}"></textarea></div>
+      <button class="btn secondary" type="submit">{{tr .Lang "send_button"}}</button>
+    </form>
+
+    <div class="strip mt-lg"><h2>{{tr .Lang "aprsph_net_messages"}}</h2><span>{{tr .Lang "aprsph_count_hint"}}</span></div>
+    <form class="stack mt" method="post" action="/aprs/aprsph">
+      <input type="hidden" name="kind" value="last">
+      <div class="cols"><div><label for="aprsph-last-count">{{tr .Lang "aprsph_count_hint"}}</label><select id="aprsph-last-count" name="count"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div><div><label for="aprsph-last-thurs">{{tr .Lang "aprsph_thursday_only"}}</label><select id="aprsph-last-thurs" name="thursday"><option value="false">{{tr .Lang "no_label"}}</option><option value="true">{{tr .Lang "yes_label"}}</option></select></div></div>
+      <button class="btn" type="submit">{{tr .Lang "send_button"}}</button>
+    </form>
+
+    <div class="strip mt-lg"><h2>{{tr .Lang "aprsph_my_messages"}}</h2></div>
+    <form class="stack mt" method="post" action="/aprs/aprsph">
+      <input type="hidden" name="kind" value="mine">
+      <div class="cols"><div><label for="aprsph-mine-count">{{tr .Lang "aprsph_count_hint"}}</label><select id="aprsph-mine-count" name="count"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div><div><label for="aprsph-mine-target">{{tr .Lang "aprsph_callsign_optional"}}</label><input id="aprsph-mine-target" name="target" maxlength="12"></div></div>
+      <div><label for="aprsph-mine-thurs">{{tr .Lang "aprsph_thursday_only"}}</label><select id="aprsph-mine-thurs" name="thursday"><option value="false">{{tr .Lang "no_label"}}</option><option value="true">{{tr .Lang "yes_label"}}</option></select></div>
+      <button class="btn" type="submit">{{tr .Lang "send_button"}}</button>
+    </form>
+
+    <div class="strip mt-lg"><h2>{{tr .Lang "aprsph_search"}}</h2></div>
+    <form class="stack mt" method="post" action="/aprs/aprsph">
+      <input type="hidden" name="kind" value="search">
+      <div class="cols"><div><label for="aprsph-search">{{tr .Lang "aprsph_search_prompt"}}</label><input id="aprsph-search" name="phrase" required></div><div><label for="aprsph-search-count">{{tr .Lang "aprsph_count_hint"}}</label><select id="aprsph-search-count" name="count"><option value="5">5</option><option value="10">10</option><option value="15">15</option></select></div></div>
+      <button class="btn" type="submit">{{tr .Lang "send_button"}}</button>
+    </form>
+  </div>
+
+  <aside>
+    <div class="strip"><h2>{{tr .Lang "aprsph_bot_info"}}</h2><span>{{.Data.Bot}}</span></div>
+    <div class="rows mt-sm">
+      <form method="post" action="/aprs/aprsph"><input type="hidden" name="kind" value="list"><button class="btn secondary small" type="submit">{{tr .Lang "aprsph_list"}}</button></form>
+      <form method="post" action="/aprs/aprsph"><input type="hidden" name="kind" value="inbox"><button class="btn secondary small" type="submit">{{tr .Lang "aprsph_inbox"}}</button></form>
+      <form method="post" action="/aprs/aprsph"><input type="hidden" name="kind" value="path"><button class="btn secondary small" type="submit">{{tr .Lang "aprsph_path"}}</button></form>
+      <form method="post" action="/aprs/aprsph"><input type="hidden" name="kind" value="position"><button class="btn secondary small" type="submit">{{tr .Lang "aprsph_position"}}</button></form>
+      <form method="post" action="/aprs/aprsph"><input type="hidden" name="kind" value="status"><button class="btn secondary small" type="submit">{{tr .Lang "aprsph_status"}}</button></form>
+      <form method="post" action="/aprs/aprsph"><input type="hidden" name="kind" value="checkout"><button class="btn secondary small" type="submit">{{tr .Lang "aprsph_checkout"}}</button></form>
+    </div>
+
+    <div class="strip mt-lg"><h2>{{tr .Lang "aprsph_help"}}</h2></div>
+    <div class="card mt-sm"><ul class="plain">{{range .Data.Lines}}<li class="pre">{{.}}</li>{{end}}</ul></div>
+  </aside>
+</div>
 {{template "layout_end" .}}{{end}}
 
 {{define "aprs_received"}}

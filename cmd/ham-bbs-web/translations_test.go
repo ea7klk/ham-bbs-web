@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -118,4 +119,44 @@ func mustGlob(t *testing.T, pattern string) []string {
 		t.Fatalf("no files matched %q", pattern)
 	}
 	return files
+}
+
+// The bulletin category labels and descriptions are built from an id at runtime
+// ("aprs_bulletin_category_" + id), so the scanner above cannot see them. Every
+// category the reader can be shown must exist in every language, or the page
+// shows a raw key exactly where it matters most — a weather warning.
+func TestBulletinCategoriesAreTranslated(t *testing.T) {
+	text := loadTranslations(t)
+	if len(aprsBulletinCategories) != 13 {
+		t.Fatalf("expected 13 bulletin categories, found %d", len(aprsBulletinCategories))
+	}
+	for _, code := range languageOrder {
+		for _, category := range aprsBulletinCategories {
+			for _, prefix := range []string{"aprs_bulletin_category_", "aprs_bulletin_desc_"} {
+				key := prefix + category
+				value, ok := text[code][key].(string)
+				if !ok || strings.TrimSpace(value) == "" {
+					t.Fatalf("%s is missing from language %q", key, code)
+				}
+			}
+		}
+	}
+}
+
+// The APRSPH help lines are an array, not a string, so the string scanner skips
+// them. The page renders every element, so every language needs the array.
+func TestAPRSPHHelpLinesAreTranslated(t *testing.T) {
+	text := loadTranslations(t)
+	for _, code := range languageOrder {
+		raw, ok := text[code]["aprsph_help_lines"].([]any)
+		if !ok || len(raw) == 0 {
+			t.Fatalf("aprsph_help_lines is missing or empty for %q", code)
+		}
+		for i, line := range raw {
+			value, ok := line.(string)
+			if !ok || strings.TrimSpace(value) == "" {
+				t.Fatalf("aprsph_help_lines[%d] is not a string for %q", i, code)
+			}
+		}
+	}
 }

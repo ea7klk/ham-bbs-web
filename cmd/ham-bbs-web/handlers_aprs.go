@@ -358,7 +358,12 @@ func aprsReturnTarget(raw string) string {
 func (s *server) aprsOverview(user *dbUser) aprsOverviewView {
 	_, sentPagination := s.sentAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/sent")
 	_, receivedPagination := s.receivedAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/received")
-	return aprsOverviewView{Sent: sentPagination, Received: receivedPagination}
+	return aprsOverviewView{
+		Sent:           sentPagination,
+		Received:       receivedPagination,
+		ThursdayGroup:  aprsGroupHOTG,
+		ThursdayActive: aprsThursdayActive(aprsClock()),
+	}
 }
 
 func (s *server) aprsSend(w http.ResponseWriter, r *http.Request, user *dbUser) {

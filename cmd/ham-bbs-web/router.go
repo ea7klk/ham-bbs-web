@@ -69,6 +69,12 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /aprs/bulletins/{category}", s.requireAuth(s.aprsBulletinCategory))
 	mux.HandleFunc("GET /aprs/bulletins/{category}/{id}", s.requireAuth(s.aprsBulletinDetail))
 
+	// The two bots: APRSPH's command set, and the #APRSThursday group commands.
+	mux.HandleFunc("GET /aprs/aprsph", s.requireAuth(s.aprsphPage))
+	mux.HandleFunc("POST /aprs/aprsph", s.requireAuth(s.aprsphSend))
+	mux.HandleFunc("POST /aprs/thursday/join", s.requireAuth(s.thursdayJoin))
+	mux.HandleFunc("POST /aprs/thursday/leave", s.requireAuth(s.thursdayLeave))
+	mux.HandleFunc("POST /aprs/thursday/keepalive", s.requireAuth(s.thursdayKeepalive))
 	mux.HandleFunc("GET /aprs/received", s.requireAuth(s.aprsReceived))
 	mux.HandleFunc("GET /aprs/sent", s.requireAuth(s.aprsSent))
 	mux.HandleFunc("GET /aprs/send", s.requireAuth(s.aprsSendForm))

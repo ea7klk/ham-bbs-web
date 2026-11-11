@@ -71,6 +71,16 @@ func fixtureWorld(t *testing.T) (*server, *dbUser) {
 	if err := s.db.Create(&dbAPRSReceived{UserCallsign: "EA7KLK", Position: 0, At: now(), From: "DN9RZ", To: "EA7KLK", Text: "WX back online", Raw: "DN9RZ>APRS::EA7KLK :WX back online"}).Error; err != nil {
 		t.Fatal(err)
 	}
+	// A bulletin, so the bulletin pages render their filled state. The id is 1 in
+	// a fresh database, which is what the detail-page case above asks for.
+	if err := s.db.Create(&dbAPRSBulletin{
+		DedupeKey: "fixture", FirstSeen: now(), LastSeen: now(), SeenCount: 4,
+		From: "NWS", Slot: 1, Group: "NWS", Category: "weather",
+		Text: "Tornado warning until 21:00Z",
+		Raw:  "NWS>APRS::BLN1NWS  :Tornado warning until 21:00Z",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
 	return s, sysop
 }
 
@@ -156,6 +166,13 @@ func TestEveryPageRenders(t *testing.T) {
 		{name: "aprs received detail", path: "/aprs/received/1", handler: s.aprsReceivedDetail, setup: pathID("id", "1")},
 		{name: "aprs reply", path: "/aprs/received/1/reply", handler: s.aprsReceivedReplyForm, setup: pathID("id", "1")},
 		{name: "message edit", path: "/messages/1/edit", handler: s.messageEditForm, setup: pathID("id", "1")},
+		{name: "aprs bulletins", path: "/aprs/bulletins", handler: s.aprsBulletinIndex},
+		{name: "aprs bulletin category", path: "/aprs/bulletins/weather", code: http.StatusOK, handler: s.aprsBulletinCategory, setup: pathID("category", "weather")},
+		{name: "aprs bulletin category unknown", path: "/aprs/bulletins/nonsense", code: http.StatusNotFound, handler: s.aprsBulletinCategory, setup: pathID("category", "nonsense")},
+		{name: "aprs bulletin detail", path: "/aprs/bulletins/weather/1", handler: s.aprsBulletinDetail, setup: func(r *http.Request) *http.Request {
+			return setPathValue(setPathValue(r, "category", "weather"), "id", "1")
+		}},
+		{name: "aprsph", path: "/aprs/aprsph", handler: s.aprsphPage},
 	}
 
 	for _, page := range pages {
