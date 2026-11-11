@@ -41,11 +41,13 @@ env:
   REGISTRY: ghcr.io
 
 # A superseded branch or pull-request run is cancelled so the queue cannot fill
-# with stale work. A release build is never cancelled: the image it publishes is
-# what the deployment pins.
+# with stale work. A run for a tag is never cancelled, whichever event started
+# it: creating a release also pushes its tag, so the release run and the
+# tag-push run share a concurrency group, and a tag-push run that cancelled
+# "in progress" work would kill the release build that publishes the image.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'release' }}
+  cancel-in-progress: ${{ github.event_name != 'release' && !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   tests:
