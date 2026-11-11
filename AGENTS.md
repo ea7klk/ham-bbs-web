@@ -66,7 +66,18 @@ no ORM layer beyond GORM; the pieces are:
 - `ratelimit.go` — in-memory login throttle (five failures per account and
   source address per fifteen minutes, fifteen-minute lockout).
 - `security.go` — PBKDF2 password hashing/verification and session tokens.
-- `templates.go` — all HTML templates and template funcs, embedded in the binary.
+- `templates.go` — all HTML templates, the stylesheet, and the template funcs,
+  embedded in the binary. The look is "Packet Manual structure, Spectrum
+  palette": monospace throughout, hard rules, uppercase letter-spaced labels,
+  ruled tables and a title block, on a deep indigo background lit by cyan,
+  violet, magenta and lime. Keep new markup on that grid rather than
+  reintroducing rounded cards: `.card`/`.panel` for a box, `.strip` for a section
+  header, `.rows`/`.rowlink` for a list, `.status`/`.tiles` for metrics, and
+  `.pagehead` for the heading of a page. Inline `style=` attributes are not used;
+  spacing utilities (`.mt`, `.mt-lg`, `.mb`, `.wide`, `.narrow`) cover the rest.
+  Every colour pair in the palette clears WCAG AA for body text, and the
+  structural rule `--rule-hi` clears 3:1 against the page background — keep both
+  when changing a colour.
 - `translations.json` — UI strings for `en`, `es`, `fr`, `de`; loaded at runtime
   (path in `BBS_TRANSLATIONS_FILE`) and also copied into the image. Adding a
   user-visible string means adding a key to **all four** languages.
@@ -110,12 +121,18 @@ everyone out (acceptable for a single-replica deployment).
    a success clears the counter. Do not key it on the peer address alone — the
    app sits behind a reverse proxy, and one shared bucket would let any caller
    lock out the whole site.
-9. **Token formats are a wire format between the two applications.** A reset
+9. **A page renders to a buffer, not straight to the response.** `viewStatus`
+   executes the template into memory first, then sets the status. html/template
+   writes as it goes and only reports an error at the end, so streaming straight
+   into the response would emit a truncated page with a 200 — and a 404 could
+   never carry a body. Missing content goes through `s.notFound`, which renders
+   the real page with the caller's own navigation.
+10. **Token formats are a wire format between the two applications.** A reset
    link the SSH BBS mails must be redeemable by `claimToken` here, and a code
    issued here must be verifiable there. Changing the hash input, the purpose
    strings, the alphabet or a TTL is a change to both repositories, and it
    invalidates any link already in someone's inbox.
-10. **Activation is checked after the password.** An unactivated account gets no
+11. **Activation is checked after the password.** An unactivated account gets no
     session, but it is not told the account exists before the password checks
     out either. Registration does not activate: with SMTP configured it mails a
     code, and without SMTP it marks the account active rather than locking the
