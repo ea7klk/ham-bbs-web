@@ -35,7 +35,7 @@ func (s *server) bulletinCreate(w http.ResponseWriter, r *http.Request, user *db
 func (s *server) bulletinEdit(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	item, err := s.findBulletin(r)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	s.view(w, r, "bulletin_form", user, item, "", "")
@@ -44,7 +44,7 @@ func (s *server) bulletinEdit(w http.ResponseWriter, r *http.Request, user *dbUs
 func (s *server) bulletinUpdate(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	item, err := s.findBulletin(r)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	item.Title = sanitizeSingleLineText(r.FormValue("title"))

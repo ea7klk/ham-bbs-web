@@ -123,7 +123,7 @@ func aprsPageURL(path string, page, perPage int) string {
 func (s *server) aprsSentDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findSentAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	s.view(w, r, "aprs_sent_detail", user, map[string]any{"Message": msg}, "", "")
@@ -132,7 +132,7 @@ func (s *server) aprsSentDetail(w http.ResponseWriter, r *http.Request, user *db
 func (s *server) aprsReceivedDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	detail := receivedAPRSDetail{
@@ -145,7 +145,7 @@ func (s *server) aprsReceivedDetail(w http.ResponseWriter, r *http.Request, user
 func (s *server) aprsReceivedReplyForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	destination, ssid := splitAPRSDestination(msg.From)
@@ -164,7 +164,7 @@ func (s *server) aprsReceivedReplyForm(w http.ResponseWriter, r *http.Request, u
 func (s *server) aprsReceivedReply(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	destination := composeAPRSDestination(r.FormValue("destination"), r.FormValue("destination_ssid"))
@@ -178,7 +178,7 @@ func (s *server) aprsReceivedReply(w http.ResponseWriter, r *http.Request, user 
 func (s *server) aprsSentDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findSentAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	if _, err := s.deleteSentAPRS(user.Callsign, []uint{msg.ID}); err != nil {
@@ -207,7 +207,7 @@ func (s *server) aprsSentBulkDelete(w http.ResponseWriter, r *http.Request, user
 func (s *server) aprsReceivedDelete(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	if _, err := s.deleteReceivedAPRS(user.Callsign, []uint{msg.ID}); err != nil {

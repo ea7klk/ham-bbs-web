@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"log"
 	"net/http"
 )
@@ -159,7 +160,17 @@ func (s *server) clearSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) view(w http.ResponseWriter, r *http.Request, name string, user *dbUser, data any, msg string, errText string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	s.viewStatus(w, r, http.StatusOK, name, user, data, msg, errText)
+}
+
+// viewStatus renders a page and then sends it with an explicit status.
+//
+// The template is executed into a buffer first. html/template writes as it goes
+// and only reports an error at the end, so executing straight into the response
+// would emit a truncated page and then be unable to change the status. Buffering
+// means a template error becomes a plain 500 instead of half a page, and it is
+// what lets a 404 be a real page rather than three words in the default font.
+func (s *server) viewStatus(w http.ResponseWriter, r *http.Request, status int, name string, user *dbUser, data any, msg string, errText string) {
 	lang := "en"
 	if user != nil && user.Language != "" {
 		lang = user.Language
@@ -168,7 +179,22 @@ func (s *server) view(w http.ResponseWriter, r *http.Request, name string, user 
 	if user != nil {
 		vd.IsSysop = s.isSysop(user)
 	}
-	if err := s.tpl.ExecuteTemplate(w, name, vd); err != nil {
+	var page bytes.Buffer
+	if err := s.tpl.ExecuteTemplate(&page, name, vd); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = page.WriteTo(w)
+}
+
+// notFound renders the 404 page with the caller's own navigation, so a stale
+// link leaves them somewhere they can move on from.
+func (s *server) notFound(w http.ResponseWriter, r *http.Request) {
+	user, err := s.currentUser(r)
+	if err != nil {
+		user = nil
+	}
+	s.viewStatus(w, r, http.StatusNotFound, "not_found", user, map[string]any{"Path": r.URL.Path}, "", "")
 }

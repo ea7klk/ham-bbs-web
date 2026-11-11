@@ -21,7 +21,7 @@ func (s *server) boards(w http.ResponseWriter, r *http.Request, user *dbUser) {
 func (s *server) boardShow(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	board, err := s.findBoard(r.PathValue("id"))
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	nodes := s.messageTree(board.ID)
@@ -53,7 +53,7 @@ func (s *server) boardCreate(w http.ResponseWriter, r *http.Request, user *dbUse
 func (s *server) boardEdit(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	board, err := s.findBoard(r.PathValue("id"))
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	s.view(w, r, "board_form", user, board, "", "")
@@ -62,7 +62,7 @@ func (s *server) boardEdit(w http.ResponseWriter, r *http.Request, user *dbUser)
 func (s *server) boardUpdate(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	board, err := s.findBoard(r.PathValue("id"))
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	oldID := board.ID
@@ -116,7 +116,7 @@ func (s *server) boardDelete(w http.ResponseWriter, r *http.Request, user *dbUse
 func (s *server) messagePost(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	board, err := s.findBoard(r.PathValue("id"))
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	msg := dbMessage{
@@ -139,7 +139,7 @@ func (s *server) messagePost(w http.ResponseWriter, r *http.Request, user *dbUse
 func (s *server) messageReply(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	parent, err := s.findMessage(r.PathValue("id"))
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	msg := dbMessage{
@@ -160,7 +160,7 @@ func (s *server) messageReply(w http.ResponseWriter, r *http.Request, user *dbUs
 			}
 			board, boardErr := s.findBoard(parent.BoardID)
 			if boardErr != nil {
-				http.NotFound(w, r)
+				s.notFound(w, r)
 				return
 			}
 			s.view(w, r, "board", user, map[string]any{"Board": board, "Messages": s.messageTree(board.ID)}, "", message)

@@ -329,6 +329,11 @@ const templates = `
 
 {{define "message_form"}}{{template "layout_start" .}}<h1>{{tr .Lang "message_edit_title"}}</h1><p class="muted">{{.Data.Board.Name}}</p><form class="stack card" method="post" action="/messages/{{.Data.Message.ID}}/edit"><div><label>{{tr .Lang "subject"}}</label><input name="subject" value="{{.Data.Message.Subject}}" required></div><div><label>{{tr .Lang "message_body"}}</label><textarea name="body" required>{{.Data.Message.Body}}</textarea></div><div class="row"><button class="btn">{{tr .Lang "save_button"}}</button><a class="btn secondary" href="/boards/{{.Data.Board.ID}}">{{tr .Lang "cancel_button"}}</a></div></form>{{template "layout_end" .}}{{end}}
 
+{{define "not_found"}}{{template "layout_start" .}}
+<div class="between"><h1>{{tr .Lang "web_not_found"}}</h1></div>
+<div class="card"><p>{{tr .Lang "web_not_found_body"}}</p><p><a class="btn" href="/">{{tr .Lang "web_home"}}</a> <a class="btn secondary" href="/boards">{{tr .Lang "web_message_boards"}}</a></p></div>
+{{template "layout_end" .}}{{end}}
+
 {{define "about"}}{{template "layout_start" .}}<h1>{{tr .Lang "about_title"}}</h1><div class="card"><p>{{tr .Lang "about_hamnet"}}</p><p>{{tr .Lang "about_storage"}}</p><p>{{tr .Lang "about_graphics"}}</p><p>{{tr .Lang "about_note"}}</p></div>{{template "layout_end" .}}{{end}}
 
 {{define "resources"}}{{template "layout_start" .}}<h1>{{tr .Lang "resources_title"}}</h1><div class="card"><ul class="plain"><li>{{tr .Lang "hamnet_address"}}</li><li>{{tr .Lang "local_ssh"}}</li><li>{{tr .Lang "hamnet_ssh"}}</li></ul></div>{{template "layout_end" .}}{{end}}

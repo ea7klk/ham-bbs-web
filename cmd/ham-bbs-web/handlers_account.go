@@ -246,12 +246,12 @@ func (s *server) emailConfirm(w http.ResponseWriter, r *http.Request, user *dbUs
 func (s *server) messageEditForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findMessage(r.PathValue("id"))
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	board, err := s.findBoard(msg.BoardID)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	s.view(w, r, "message_form", user, map[string]any{"Board": board, "Message": msg}, r.URL.Query().Get("msg"), "")
@@ -260,12 +260,12 @@ func (s *server) messageEditForm(w http.ResponseWriter, r *http.Request, user *d
 func (s *server) messageUpdate(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	msg, err := s.findMessage(r.PathValue("id"))
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	board, err := s.findBoard(msg.BoardID)
 	if err != nil {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	subject := sanitizeSingleLineText(r.FormValue("subject"))
