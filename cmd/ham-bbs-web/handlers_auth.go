@@ -69,7 +69,11 @@ func (s *server) registerPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user.FirstSeen = now()
-	user.LastSeen = now()
+	user.LastSeen = user.FirstSeen
+	// The registration date is written once, here, and never updated again. It
+	// shares the first-seen stamp so an account created by either application
+	// carries the same value in both columns, exactly as the SSH BBS does.
+	user.Registered = user.FirstSeen
 	// BBS_SYSOPS is a bootstrap grant: it applies only while no enabled sysop
 	// exists, so a configured callsign registered later gets a plain account.
 	user.IsSysop = s.isBootstrapSysop(user.Callsign)
@@ -126,6 +130,11 @@ func (s *server) profilePost(w http.ResponseWriter, r *http.Request, user *dbUse
 	}
 	updated.Callsign = user.Callsign
 	updated.FirstSeen = user.FirstSeen
+	// Write-once fields: take them from the loaded row, never from the form,
+	// which cannot carry them. userFromForm is already seeded with *user, so
+	// this is belt and braces; it keeps the write-once set explicit beside the
+	// fields that are deliberately allowed to change.
+	updated.Registered = user.Registered
 	updated.LastSeen = now()
 	updated.IsSysop = user.IsSysop
 	updated.Disabled = user.Disabled

@@ -24,7 +24,22 @@ func openDatabase(path string) (*gorm.DB, error) {
 	if err := db.AutoMigrate(&dbUser{}, &dbBulletin{}, &dbBoard{}, &dbMessage{}, &dbAPRSSent{}, &dbAPRSSentPart{}, &dbAPRSReceived{}); err != nil {
 		return nil, err
 	}
+	if err := backfillRegistered(db); err != nil {
+		return nil, err
+	}
 	return db, nil
+}
+
+// backfillRegistered gives accounts created before the column existed a
+// registration date taken from their first-seen stamp, which was written at
+// creation. It is idempotent: after the first run the WHERE clause matches
+// nothing. The classic SSH BBS runs the same update on startup; whichever
+// application opens the database first fills the column, and rows with no
+// first_seen stay empty rather than being given a fabricated date.
+func backfillRegistered(db *gorm.DB) error {
+	return db.Model(&dbUser{}).
+		Where("(registered IS NULL OR registered = '') AND first_seen IS NOT NULL AND first_seen <> ''").
+		UpdateColumn("registered", gorm.Expr("first_seen")).Error
 }
 
 func (s *server) seedDefaultData() error {

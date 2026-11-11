@@ -22,7 +22,11 @@ func (s *server) adminUserUpdate(w http.ResponseWriter, r *http.Request, user *d
 		// demoted; the last-sysop guard below still prevents locking the BBS out.
 		target.IsSysop = r.FormValue("is_sysop") == "true"
 		target.Disabled = r.FormValue("disabled") == "true"
-		s.db.Save(&target)
+		// Name the two columns this form owns. A whole-row Save would rewrite the
+		// write-once registration date from a value read a moment earlier, and
+		// would clobber any column another session changed in between.
+		s.db.Model(&dbUser{}).Where("callsign = ?", target.Callsign).
+			Updates(map[string]any{"is_sysop": target.IsSysop, "disabled": target.Disabled})
 		s.logBBSAction(user.Callsign, "web_user_update", "target=%q disabled=%t sysop=%t", target.Callsign, target.Disabled, target.IsSysop)
 	}
 	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)

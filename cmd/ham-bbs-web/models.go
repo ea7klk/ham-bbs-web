@@ -14,6 +14,9 @@ type dbUser struct {
 	Disabled     bool
 	FirstSeen    string
 	LastSeen     string
+	// Registered is when the account was created. It is written once and never
+	// changes, unlike FirstSeen/LastSeen which track presence.
+	Registered string
 }
 
 type dbBulletin struct {
