@@ -69,6 +69,16 @@ window, or one surface will write rows the other cannot use:
   a bare `email = ?` silently scans the table — which is what all email lookups
   did before this index existed. Adding the index to only one repository is
   harmless but pointless: the other's migration would not create it.
+- **APRS bulletins.** `db_aprs_bulletins` is written **only** by the classic BBS
+  receiver — it parses `BLNn`+group addressees, deduplicates by content, assigns
+  the category and enforces the ten-day retention from `last_seen`. The web app
+  reads the table and nothing else. If a category is ever added, add it to
+  `bulletinCategories` there and to `aprsBulletinCategories` here, plus the
+  `aprs_bulletin_category_<id>` and `aprs_bulletin_desc_<id>` strings.
+- **Bot commands are a wire format.** `APRSPH` is a station; `ANSRVR` is the group
+  server. The command strings (`CQ HOTG`, `U HOTG`, `K HOTG`, `LIST`,
+  `LAST10 THURS`, `?APRSM`, …) are APRS protocol: never translated, never split
+  across messages, and identical in both applications because they go on the air.
 - **Schema version marker.** The classic BBS writes `schema.version` into
   `db_settings` once it has migrated, and its sessions refuse to start until the
   marker is present, because the migration is a one-shot rather than per

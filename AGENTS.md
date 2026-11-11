@@ -55,6 +55,12 @@ no ORM layer beyond GORM; the pieces are:
   materialisation, sibling position, all inside one immediate transaction.
 - `accounts.go` — activation codes, link tokens, the email-change pair, the
   per-address registration meter, and the daily cleanup of those tables.
+- `aprs_bulletins.go`, `handlers_aprs_bulletins.go` — a read-only view of
+  `db_aprs_bulletins`, which the classic BBS receiver owns. Do not write to that
+  table from here.
+- `aprs_commands.go`, `handlers_bots.go` — the two APRS bots. Commands are
+  protocol: never translated, never split, and the strings must match
+  `bbs/cmd/bbs/aprs_aprsph.go` and `bbs/cmd/bbs/aprs.go` exactly.
 - `handlers_account.go` — the public pages that redeem them (`/activate`,
   `/forgot`, `/reset`, `/email/confirm`) plus `/about`, `/resources` and the
   sysop message editor.
@@ -134,7 +140,10 @@ everyone out (acceptable for a single-replica deployment).
    issued here must be verifiable there. Changing the hash input, the purpose
    strings, the alphabet or a TTL is a change to both repositories, and it
    invalidates any link already in someone's inbox.
-11. **Activation is checked after the password.** An unactivated account gets no
+11. **A bot command is one APRS message.** `sendAPRSCommand` never splits; the
+    splitter's "[n/total] " prefix would turn `CQ HOTG <text>` into two packets
+    that are not commands. Over-long text is refused with the reason.
+12. **Activation is checked after the password.** An unactivated account gets no
     session, but it is not told the account exists before the password checks
     out either. Registration does not activate: with SMTP configured it mails a
     code, and without SMTP it marks the account active rather than locking the
