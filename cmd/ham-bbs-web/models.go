@@ -219,13 +219,23 @@ type aprsOverviewView struct {
 }
 
 type aprsSentPageView struct {
-	Lang       string
-	Rows       []dbAPRSSent
-	Pagination aprsPagination
+	Lang        string
+	Rows        []dbAPRSSent
+	Pagination  aprsPagination
+	Section     aprsScope
+	SectionName string
+	Sections    []aprsSection
+	// ReceivedURL links to the other direction in the same section.
+	ReceivedURL string
 }
 
 type aprsReceivedPageView struct {
-	Lang       string
-	Rows       []dbAPRSReceived
-	Pagination aprsPagination
+	Lang        string
+	Rows        []dbAPRSReceived
+	Pagination  aprsPagination
+	Section     aprsScope
+	SectionName string
+	Sections    []aprsSection
+	// SentURL links to the other direction in the same section.
+	SentURL string
 }

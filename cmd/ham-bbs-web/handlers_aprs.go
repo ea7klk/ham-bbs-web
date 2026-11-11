@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -21,15 +22,82 @@ func (s *server) aprs(w http.ResponseWriter, r *http.Request, user *dbUser) {
 }
 
 func (s *server) aprsSent(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	page, perPage := parseAPRSPage(r)
-	messages, pagination := s.sentAPRSPage(user.Callsign, page, perPage, "/aprs/sent")
-	s.view(w, r, "aprs_sent", user, aprsSentPageView{Lang: user.Language, Rows: messages, Pagination: pagination}, "", "")
+	scope, ok := s.scopeFromRequest(w, r)
+	if !ok {
+		return
+	}
+	s.aprsSentScope(w, r, user, scope)
 }
 
 func (s *server) aprsReceived(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	scope, ok := s.scopeFromRequest(w, r)
+	if !ok {
+		return
+	}
+	s.aprsReceivedScope(w, r, user, scope)
+}
+
+// scopeFromRequest reads ?section= and reports an unknown value rather than
+// silently falling back to the direct section, so a stale link says so.
+func (s *server) scopeFromRequest(w http.ResponseWriter, r *http.Request) (aprsScope, bool) {
+	scope, ok := aprsScopeOfParam(r.URL.Query().Get("section"))
+	if !ok {
+		s.notFound(w, r)
+		return "", false
+	}
+	return scope, true
+}
+
+// aprsSentScope renders the sent history for one section.
+func (s *server) aprsSentScope(w http.ResponseWriter, r *http.Request, user *dbUser, scope aprsScope) {
+	path := aprsListPath("sent", scope)
 	page, perPage := parseAPRSPage(r)
-	messages, pagination := s.receivedAPRSPage(user.Callsign, page, perPage, "/aprs/received")
-	s.view(w, r, "aprs_received", user, aprsReceivedPageView{Lang: user.Language, Rows: messages, Pagination: pagination}, "", "")
+	messages, pagination := s.sentAPRSPage(user.Callsign, page, perPage, path, scope)
+	tabs, err := s.aprsSectionTabs(user.Language, "sent", user.Callsign, scope)
+	if err != nil {
+		s.view(w, r, "aprs_sent", user, aprsSentPageView{Lang: user.Language, Rows: messages, Pagination: pagination, Section: scope}, "", err.Error())
+		return
+	}
+	s.view(w, r, "aprs_sent", user, aprsSentPageView{
+		Lang:        user.Language,
+		Rows:        messages,
+		Pagination:  pagination,
+		Section:     scope,
+		SectionName: s.t(user.Language, scope.labelKey()),
+		Sections:    tabs,
+		ReceivedURL: aprsListPath("received", scope),
+	}, "", "")
+}
+
+// aprsListPath is the URL for one direction and section. The direct section has
+// no parameter, so those URLs stay the plain ones.
+func aprsListPath(direction string, scope aprsScope) string {
+	path := "/aprs/" + direction
+	if value := scope.queryValue(); value != "" {
+		path += "?section=" + url.QueryEscape(value)
+	}
+	return path
+}
+
+// aprsReceivedScope renders the received history for one section.
+func (s *server) aprsReceivedScope(w http.ResponseWriter, r *http.Request, user *dbUser, scope aprsScope) {
+	path := aprsListPath("received", scope)
+	page, perPage := parseAPRSPage(r)
+	messages, pagination := s.receivedAPRSPage(user.Callsign, page, perPage, path, scope)
+	tabs, err := s.aprsSectionTabs(user.Language, "received", user.Callsign, scope)
+	if err != nil {
+		s.view(w, r, "aprs_received", user, aprsReceivedPageView{Lang: user.Language, Rows: messages, Pagination: pagination, Section: scope}, "", err.Error())
+		return
+	}
+	s.view(w, r, "aprs_received", user, aprsReceivedPageView{
+		Lang:        user.Language,
+		Rows:        messages,
+		Pagination:  pagination,
+		Section:     scope,
+		SectionName: s.t(user.Language, scope.labelKey()),
+		Sections:    tabs,
+		SentURL:     aprsListPath("sent", scope),
+	}, "", "")
 }
 
 func (s *server) aprsSendForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -61,14 +129,14 @@ func parseAPRSPage(r *http.Request) (int, int) {
 	return page, perPage
 }
 
-func (s *server) sentAPRSPage(callsign string, page, perPage int, path string) ([]dbAPRSSent, aprsPagination) {
+func (s *server) sentAPRSPage(callsign string, page, perPage int, path string, scope aprsScope) ([]dbAPRSSent, aprsPagination) {
 	callsign = normalizeCallsign(callsign)
 	var total int64
-	s.db.Model(&dbAPRSSent{}).Where("user_callsign = ?", callsign).Count(&total)
+	scope.scopeWhere(s.db.Model(&dbAPRSSent{}).Where("user_callsign = ?", callsign), "to").Count(&total)
 	pagination := newAPRSPagination(path, page, perPage, total)
 	var rows []dbAPRSSent
-	s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
-		Where("user_callsign = ?", callsign).
+	scope.scopeWhere(s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
+		Where("user_callsign = ?", callsign), "to").
 		Order("position DESC, id DESC").
 		Offset((pagination.Page - 1) * pagination.PerPage).
 		Limit(pagination.PerPage).
@@ -76,13 +144,13 @@ func (s *server) sentAPRSPage(callsign string, page, perPage int, path string) (
 	return rows, pagination
 }
 
-func (s *server) receivedAPRSPage(callsign string, page, perPage int, path string) ([]dbAPRSReceived, aprsPagination) {
+func (s *server) receivedAPRSPage(callsign string, page, perPage int, path string, scope aprsScope) ([]dbAPRSReceived, aprsPagination) {
 	callsign = normalizeCallsign(callsign)
 	var total int64
-	s.db.Model(&dbAPRSReceived{}).Where("user_callsign = ?", callsign).Count(&total)
+	scope.scopeWhere(s.db.Model(&dbAPRSReceived{}).Where("user_callsign = ?", callsign), "from").Count(&total)
 	pagination := newAPRSPagination(path, page, perPage, total)
 	var rows []dbAPRSReceived
-	s.db.Where("user_callsign = ?", callsign).
+	scope.scopeWhere(s.db.Where("user_callsign = ?", callsign), "from").
 		Order("position DESC, id DESC").
 		Offset((pagination.Page - 1) * pagination.PerPage).
 		Limit(pagination.PerPage).
@@ -122,8 +190,14 @@ func newAPRSPagination(path string, page, perPage int, total int64) aprsPaginati
 	return pagination
 }
 
+// aprsPageURL builds a pagination link. The separator depends on whether the
+// base path already carries the section parameter.
 func aprsPageURL(path string, page, perPage int) string {
-	return fmt.Sprintf("%s?page=%d&per_page=%d", path, page, perPage)
+	sep := "?"
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
+	return fmt.Sprintf("%s%spage=%d&per_page=%d", path, sep, page, perPage)
 }
 
 func (s *server) aprsSentDetail(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -356,8 +430,8 @@ func aprsReturnTarget(raw string) string {
 
 // aprsOverview gathers the counts the APRS landing page shows.
 func (s *server) aprsOverview(user *dbUser) aprsOverviewView {
-	_, sentPagination := s.sentAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/sent")
-	_, receivedPagination := s.receivedAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/received")
+	_, sentPagination := s.sentAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/sent", aprsScopeDirect)
+	_, receivedPagination := s.receivedAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/received", aprsScopeDirect)
 	return aprsOverviewView{
 		Sent:           sentPagination,
 		Received:       receivedPagination,

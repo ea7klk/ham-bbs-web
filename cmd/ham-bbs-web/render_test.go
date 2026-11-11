@@ -101,8 +101,9 @@ func translationsOnDisk(t *testing.T) map[string]map[string]any {
 // means a lookup missed and the user is looking at "web_something" instead of a
 // sentence.
 var (
-	htmlTag    = regexp.MustCompile(`<[^>]*>`)
-	styleBlock = regexp.MustCompile(`(?s)<style>.*?</style>`)
+	htmlTag     = regexp.MustCompile(`<[^>]*>`)
+	styleBlock  = regexp.MustCompile(`(?s)<style>.*?</style>`)
+	topNavBlock = regexp.MustCompile(`(?s)<nav class="tabs".*?</nav>`)
 )
 
 func leakedKeys(body string, text map[string]map[string]any) []string {
@@ -310,8 +311,14 @@ func TestSectionTabFollowsThePath(t *testing.T) {
 		if !strings.Contains(markup, want) {
 			t.Fatalf("%s did not light the %s tab", test.path, test.tab)
 		}
-		if got := strings.Count(markup, `aria-current="page"`); got != 1 {
-			t.Fatalf("%s lit %d tabs", test.path, got)
+		// Count only the top nav: a page can also carry a second-level section
+		// bar (the APRS history sections), which marks its own current entry.
+		topNav := topNavBlock.FindString(markup)
+		if topNav == "" {
+			t.Fatalf("%s has no top nav", test.path)
+		}
+		if got := strings.Count(topNav, `aria-current="page"`); got != 1 {
+			t.Fatalf("%s lit %d top-level tabs", test.path, got)
 		}
 	}
 }

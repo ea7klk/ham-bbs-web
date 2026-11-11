@@ -48,11 +48,11 @@ func TestAPRSPagedQueriesAndTimestampFormatting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sent, sentPage := s.sentAPRSPage("ea7klk", 2, 10, "/aprs/sent")
+	sent, sentPage := s.sentAPRSPage("ea7klk", 2, 10, "/aprs/sent", aprsScopeDirect)
 	if len(sent) != 10 || sentPage.Total != 23 || sentPage.Pages != 3 || sent[0].Position != 12 {
 		t.Fatalf("sent page = %d/%#v, want 10 rows starting at position 12", sentPage.Total, sent)
 	}
-	received, receivedPage := s.receivedAPRSPage("EA7KLK", 3, 10, "/aprs/received")
+	received, receivedPage := s.receivedAPRSPage("EA7KLK", 3, 10, "/aprs/received", aprsScopeDirect)
 	if len(received) != 3 || receivedPage.Total != 23 || received[0].Position != 2 {
 		t.Fatalf("received page = %d/%#v, want 3 rows starting at position 2", receivedPage.Total, received)
 	}

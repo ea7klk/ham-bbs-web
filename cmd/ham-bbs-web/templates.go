@@ -46,6 +46,16 @@ func parseTemplates(text map[string]map[string]any) *template.Template {
 		},
 		"inc":      func(v int) int { return v + 1 },
 		"canReply": func(depth int) bool { return depth < maxReplyDepth },
+		// Section helpers. The scope type carries its translation keys as
+		// methods, which a template cannot call because they are unexported, so
+		// they are exposed here instead.
+		"scopeLabel": func(lang string, scope aprsScope) string {
+			return translation(text, lang, scope.labelKey())
+		},
+		"scopeDesc": func(lang string, scope aprsScope) string {
+			return translation(text, lang, scope.descriptionKey())
+		},
+		"scopeValue": func(scope aprsScope) string { return scope.queryValue() },
 		// navActive marks the current section. It compares by prefix so a board
 		// page keeps "Boards" lit, and "/" is matched exactly so the home tab is
 		// not lit on every page.
@@ -211,6 +221,16 @@ const templates = `{{define "layout_start"}}
     /* the sign-in hint: prose, then the command in a box that selects as a unit */
     .sshhint { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--rule); max-width: 760px; font-size: 12.5px; color: var(--muted); }
     .sshhint code { display: inline-block; margin-top: 8px; padding: 8px 11px; border: 1px solid var(--rule-hi); background: #0b0d1e; color: var(--cyan); font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; user-select: all; }
+    /* Section bar: which slice of the history this page shows. Uses the same
+       filled/current treatment as the top tabs, one level down. */
+    .sections { display: flex; flex-wrap: wrap; gap: 0; border: 1px solid var(--rule-hi); border-bottom: 0; margin-bottom: 0; }
+    .sections a { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 14px; text-decoration: none; color: var(--muted); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; border-right: 1px solid var(--rule); }
+    .sections a:last-child { border-right: 0; }
+    .sections a b { font-weight: 700; color: var(--dim); font-variant-numeric: tabular-nums; }
+    .sections a:hover { color: var(--ink); background: #ffffff0a; }
+    .sections a[aria-current="page"] { background: var(--grad); color: #0b0a1c; font-weight: 700; }
+    .sections a[aria-current="page"] b { color: #0b0a1c; }
+    @media (max-width: 620px) { .sections a { flex: 1 1 auto; justify-content: center; padding: 9px 8px; font-size: 9.5px; letter-spacing: .08em; } }
     .switch { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
     .switch form { margin: 0; }
     .switch-state { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -621,14 +641,20 @@ const templates = `{{define "layout_start"}}
 
 {{define "aprs_received"}}
 {{template "layout_start" .}}
-<div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "aprs_received_messages"}}</h1></div><div class="pageactions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+<div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "aprs_received_messages"}}</h1><p class="lede">{{scopeDesc .Lang .Data.Section}}</p></div><div class="pageactions"><a class="btn secondary" href="{{.Data.SentURL}}">{{tr .Lang "aprs_sent_messages"}}</a><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+{{template "aprs_sections" .Data}}
 {{template "aprs_received_table" .Data}}
 {{template "layout_end" .}}
 {{end}}
 
+{{define "aprs_sections"}}
+<nav class="sections" aria-label="{{tr .Lang "aprs_section_prompt"}}">{{range .Sections}}<a href="{{.URL}}" {{if .Current}}aria-current="page"{{end}}><span>{{.Label}}</span><b>{{.Count}}</b></a>{{end}}</nav>
+{{end}}
+
 {{define "aprs_sent"}}
 {{template "layout_start" .}}
-<div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "aprs_sent_messages"}}</h1></div><div class="pageactions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+<div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "aprs_sent_messages"}}</h1><p class="lede">{{scopeDesc .Lang .Data.Section}}</p></div><div class="pageactions"><a class="btn secondary" href="{{.Data.ReceivedURL}}">{{tr .Lang "aprs_received_messages"}}</a><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+{{template "aprs_sections" .Data}}
 {{template "aprs_sent_table" .Data}}
 {{template "layout_end" .}}
 {{end}}
@@ -701,7 +727,7 @@ const templates = `{{define "layout_start"}}
 {{$p := .Pagination}}
 <div class="pagination-bar">
   <div class="pagination-summary">{{tr .Lang "web_page"}} {{$p.Page}} / {{$p.Pages}} · {{$p.Total}} {{tr .Lang "web_messages_total"}}</div>
-  <form class="pagination-size" method="get"><label for="aprs-per-page">{{tr .Lang "web_page_size"}}</label><select id="aprs-per-page" name="per_page" onchange="this.form.submit()">{{range $size := $p.PageSizes}}<option value="{{$size}}" {{if eq $size $p.PerPage}}selected{{end}}>{{$size}}</option>{{end}}</select><input type="hidden" name="page" value="1"><button class="btn secondary small" type="submit">{{tr .Lang "web_apply"}}</button></form>
+  <form class="pagination-size" method="get"><label for="aprs-per-page">{{tr .Lang "web_page_size"}}</label><select id="aprs-per-page" name="per_page" onchange="this.form.submit()">{{range $size := $p.PageSizes}}<option value="{{$size}}" {{if eq $size $p.PerPage}}selected{{end}}>{{$size}}</option>{{end}}</select><input type="hidden" name="page" value="1">{{with scopeValue .Section}}<input type="hidden" name="section" value="{{.}}">{{end}}<button class="btn secondary small" type="submit">{{tr .Lang "web_apply"}}</button></form>
   <div class="pagination-links">{{if $p.HasPrevious}}<a class="btn secondary small" href="{{$p.PreviousURL}}">{{tr .Lang "web_previous"}}</a>{{end}}{{if $p.HasNext}}<a class="btn secondary small" href="{{$p.NextURL}}">{{tr .Lang "web_next"}}</a>{{end}}</div>
 </div>
 {{end}}

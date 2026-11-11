@@ -58,6 +58,9 @@ no ORM layer beyond GORM; the pieces are:
 - `aprs_bulletins.go`, `handlers_aprs_bulletins.go` — a read-only view of
   `db_aprs_bulletins`, which the classic BBS receiver owns. Do not write to that
   table from here.
+- `aprs_scope.go` — sections of the APRS history, classified by peer callsign and
+  filtered in SQL so pagination stays correct. Must match the classic BBS's own
+  `aprs_scope.go`.
 - `aprs_commands.go`, `handlers_bots.go` — the two APRS bots. Commands are
   protocol: never translated, never split, and the strings must match
   `bbs/cmd/bbs/aprs_aprsph.go` and `bbs/cmd/bbs/aprs.go` exactly.

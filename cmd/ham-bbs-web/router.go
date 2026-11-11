@@ -75,6 +75,10 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /aprs/thursday/join", s.requireAuth(s.thursdayJoin))
 	mux.HandleFunc("POST /aprs/thursday/leave", s.requireAuth(s.thursdayLeave))
 	mux.HandleFunc("POST /aprs/thursday/keepalive", s.requireAuth(s.thursdayKeepalive))
+	// The three sections of each history are selected by ?section=, not by a path
+	// segment: /aprs/sent/{scope} would collide with /aprs/sent/{id} below,
+	// because both are wildcards at the same position and net/http refuses to
+	// guess which one a request meant.
 	mux.HandleFunc("GET /aprs/received", s.requireAuth(s.aprsReceived))
 	mux.HandleFunc("GET /aprs/sent", s.requireAuth(s.aprsSent))
 	mux.HandleFunc("GET /aprs/send", s.requireAuth(s.aprsSendForm))
@@ -195,6 +199,7 @@ func (s *server) viewStatus(w http.ResponseWriter, r *http.Request, status int, 
 	}
 	var page bytes.Buffer
 	if err := s.tpl.ExecuteTemplate(&page, name, vd); err != nil {
+		log.Printf("render error %s: %v", name, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

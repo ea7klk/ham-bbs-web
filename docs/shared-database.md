@@ -75,6 +75,13 @@ window, or one surface will write rows the other cannot use:
   reads the table and nothing else. If a category is ever added, add it to
   `bulletinCategories` there and to `aprsBulletinCategories` here, plus the
   `aprs_bulletin_category_<id>` and `aprs_bulletin_desc_<id>` strings.
+- **Message sections.** Both applications file APRS history into three sections by
+  the peer callsign alone: `APRSPH` is the net bot, `ANSRVR` is the group server
+  (`#APRSThursday` and any other group), and everything else is traffic with
+  another station. The classification lives in `aprs_scope.go` in each repository
+  and must stay identical: the two surfaces show the same rows, and a message
+  filed differently in each is a bug with no single owner. Nothing is stored — the
+  peer is already in the row, so no migration is involved.
 - **Bot commands are a wire format.** `APRSPH` is a station; `ANSRVR` is the group
   server. The command strings (`CQ HOTG`, `U HOTG`, `K HOTG`, `LIST`,
   `LAST10 THURS`, `?APRSM`, …) are APRS protocol: never translated, never split
