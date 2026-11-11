@@ -61,6 +61,14 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /boards/{id}/edit", s.requireSysop(s.boardUpdate))
 	mux.HandleFunc("POST /boards/{id}/delete", s.requireSysop(s.boardDelete))
 	mux.HandleFunc("GET /aprs", s.requireAuth(s.aprs))
+
+	// APRS bulletins are read-only: the receiver in the classic BBS owns the
+	// table. They are global rather than per user, so any signed-in caller can
+	// read them — EnableAPRS governs sending, not reading.
+	mux.HandleFunc("GET /aprs/bulletins", s.requireAuth(s.aprsBulletinIndex))
+	mux.HandleFunc("GET /aprs/bulletins/{category}", s.requireAuth(s.aprsBulletinCategory))
+	mux.HandleFunc("GET /aprs/bulletins/{category}/{id}", s.requireAuth(s.aprsBulletinDetail))
+
 	mux.HandleFunc("GET /aprs/received", s.requireAuth(s.aprsReceived))
 	mux.HandleFunc("GET /aprs/sent", s.requireAuth(s.aprsSent))
 	mux.HandleFunc("GET /aprs/send", s.requireAuth(s.aprsSendForm))

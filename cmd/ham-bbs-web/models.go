@@ -119,6 +119,27 @@ type dbToken struct {
 	ConsumedAt int64
 }
 
+// dbAPRSBulletin is one APRS bulletin, shared by all users rather than stored per
+// recipient: a bulletin addresses BLNn + a group, not a callsign.
+//
+// The classic SSH BBS receiver owns the writes. It deduplicates by content, so a
+// bulletin retransmitted every few minutes updates one row instead of adding
+// copies; the web app only reads this table. The struct has to match
+// bbs/cmd/bbs/database.go field for field.
+type dbAPRSBulletin struct {
+	ID        uint   `gorm:"primaryKey"`
+	DedupeKey string `gorm:"uniqueIndex;size:64"`
+	FirstSeen string `gorm:"index"`
+	LastSeen  string `gorm:"index"`
+	SeenCount int
+	From      string `gorm:"index"`
+	Slot      int
+	Group     string `gorm:"size:8;index"`
+	Category  string `gorm:"size:24;index"`
+	Text      string
+	Raw       string
+}
+
 // dbRegistration counts accounts created from one client address.
 type dbRegistration struct {
 	Address     string `gorm:"primaryKey;size:64"`

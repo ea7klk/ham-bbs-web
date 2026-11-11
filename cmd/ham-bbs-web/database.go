@@ -24,7 +24,7 @@ func openDatabase(path string) (*gorm.DB, error) {
 	}
 	sqlDB.SetMaxOpenConns(1)
 	if err := db.AutoMigrate(&dbUser{}, &dbBulletin{}, &dbBoard{}, &dbMessage{}, &dbAPRSSent{}, &dbAPRSSentPart{}, &dbAPRSReceived{},
-		&dbActivation{}, &dbToken{}, &dbRegistration{}, &dbSetting{}); err != nil {
+		&dbActivation{}, &dbToken{}, &dbRegistration{}, &dbSetting{}, &dbAPRSBulletin{}); err != nil {
 		return nil, err
 	}
 	if err := backfillActivated(db); err != nil {

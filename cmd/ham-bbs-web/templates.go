@@ -510,9 +510,47 @@ const templates = `{{define "layout_start"}}
   <a class="tile" href="/aprs/received"><h2>{{tr .Lang "aprs_received_messages"}}</h2><p class="metric">{{.Data.Received.Total}}</p><span class="meta">{{tr .Lang "web_messages_total"}}</span></a>
   <a class="tile" href="/aprs/sent"><h2>{{tr .Lang "aprs_sent_messages"}}</h2><p class="metric">{{.Data.Sent.Total}}</p><span class="meta">{{tr .Lang "web_messages_total"}}</span></a>
   <a class="tile" href="/aprs/send"><h2>{{tr .Lang "aprs_send_message"}}</h2><span class="meta">{{tr .Lang "web_send_aprs_intro"}}</span></a>
+  <a class="tile" href="/aprs/bulletins"><h2>{{tr .Lang "aprs_bulletins_menu"}}</h2><span class="meta">{{tr .Lang "aprs_bulletin_window"}}</span></a>
 </div>
+
 {{template "layout_end" .}}
 {{end}}
+
+{{define "aprs_bulletins"}}{{template "layout_start" .}}
+<div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "aprs_bulletin_title"}}</h1><p class="lede">{{tr .Lang "web_aprs_bulletins_hint"}}</p></div><div class="pageactions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+{{if .Data.Categories}}
+<div class="rows">{{range .Data.Categories}}<a class="rowlink" href="/aprs/bulletins/{{.ID}}"><span><b>{{.Label}}</b><small>{{.Desc}}</small></span><span class="n">{{.Count}} →</span></a>{{end}}</div>
+{{else}}<p class="muted">{{tr .Lang "aprs_bulletin_none"}}</p><p class="quiet">{{tr .Lang "aprs_bulletin_none_hint"}}</p>{{end}}
+{{template "layout_end" .}}{{end}}
+
+{{define "aprs_bulletin_list"}}{{template "layout_start" .}}
+<div class="pagehead"><div><p class="kicker">{{tr .Lang "aprs_bulletin_title"}}</p><h1>{{.Data.Label}}</h1><p class="lede">{{.Data.Desc}}</p></div><div class="pageactions"><a class="btn secondary" href="/aprs/bulletins">{{tr .Lang "aprs_bulletin_title"}}</a><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+{{if .Data.Bulletins}}
+<div class="scroll"><table><thead><tr><th>{{tr .Lang "aprs_bulletin_last_seen"}}</th><th>{{tr .Lang "from"}}</th><th>{{tr .Lang "aprs_bulletin_group"}}</th><th>{{tr .Lang "aprs_text"}}</th><th>{{tr .Lang "aprs_bulletin_times_heard"}}</th></tr></thead><tbody>
+{{range .Data.Bulletins}}<tr>
+<td><a class="rowlink" href="/aprs/bulletins/{{$.Data.Category}}/{{.Item.ID}}">{{.Age}}</a></td>
+<td><a class="rowlink" href="/aprs/bulletins/{{$.Data.Category}}/{{.Item.ID}}">{{.Item.From}}</a></td>
+<td>{{if .Item.Group}}{{.Item.Group}}{{else}}{{tr $.Lang "aprs_bulletin_no_group"}}{{end}}</td>
+<td class="pre">{{.Item.Text}}</td>
+<td>{{.Item.SeenCount}}</td>
+</tr>{{end}}
+</tbody></table></div>
+{{else}}<p class="muted">{{tr .Lang "aprs_bulletin_none"}}</p><p class="quiet">{{tr .Lang "aprs_bulletin_none_hint"}}</p>{{end}}
+{{template "layout_end" .}}{{end}}
+
+{{define "aprs_bulletin_detail"}}{{template "layout_start" .}}
+<div class="pagehead"><div><p class="kicker">{{tr .Lang "aprs_bulletin_detail"}}</p><h1>{{.Data.CategoryName}}</h1></div><div class="pageactions"><a class="btn secondary" href="/aprs/bulletins/{{.Data.Category}}">{{.Data.CategoryName}}</a><a class="btn secondary" href="/aprs/bulletins">{{tr .Lang "aprs_bulletin_title"}}</a></div></div>
+<section class="card"><dl class="detail-grid">
+<dt>{{tr .Lang "from"}}</dt><dd>{{.Data.Item.From}}</dd>
+<dt>{{tr .Lang "aprs_bulletin_group"}}</dt><dd>{{if .Data.Item.Group}}{{.Data.Item.Group}}{{else}}{{tr .Lang "aprs_bulletin_no_group"}}{{end}}</dd>
+<dt>{{tr .Lang "aprs_bulletin_category"}}</dt><dd>{{.Data.CategoryName}}</dd>
+<dt>{{tr .Lang "aprs_bulletin_slot"}}</dt><dd>{{.Data.Item.Slot}}</dd>
+<dt>{{tr .Lang "aprs_bulletin_first_seen"}}</dt><dd>{{.Data.Item.FirstSeen}}</dd>
+<dt>{{tr .Lang "aprs_bulletin_last_seen"}}</dt><dd>{{.Data.Item.LastSeen}}</dd>
+<dt>{{tr .Lang "aprs_bulletin_times_heard"}}</dt><dd>{{.Data.Item.SeenCount}}</dd>
+<dt>{{tr .Lang "aprs_text"}}</dt><dd class="pre">{{.Data.Item.Text}}</dd>
+</dl>{{if .Data.Item.Raw}}<hr><dl class="detail-grid"><dt>{{tr .Lang "aprs_raw_packet"}}</dt><dd class="pre">{{.Data.Item.Raw}}</dd></dl>{{end}}</section>
+{{template "layout_end" .}}{{end}}
 
 {{define "aprs_received"}}
 {{template "layout_start" .}}
