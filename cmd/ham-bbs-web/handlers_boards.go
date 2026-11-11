@@ -9,13 +9,19 @@ import (
 
 func (s *server) boards(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	boards := s.loadBoards()
+	s.view(w, r, "boards", user, map[string]any{"Boards": boards, "Counts": s.boardMessageCounts(boards)}, "", "")
+}
+
+// boardMessageCounts counts the messages in each board, so a board list can say
+// how much is in it rather than only how many boards exist.
+func (s *server) boardMessageCounts(boards []dbBoard) map[string]int64 {
 	counts := map[string]int64{}
-	for _, b := range boards {
+	for _, board := range boards {
 		var count int64
-		s.db.Model(&dbMessage{}).Where("board_id = ?", b.ID).Count(&count)
-		counts[b.ID] = count
+		s.db.Model(&dbMessage{}).Where("board_id = ?", board.ID).Count(&count)
+		counts[board.ID] = count
 	}
-	s.view(w, r, "boards", user, map[string]any{"Boards": boards, "Counts": counts}, "", "")
+	return counts
 }
 
 func (s *server) boardShow(w http.ResponseWriter, r *http.Request, user *dbUser) {

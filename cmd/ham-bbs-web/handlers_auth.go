@@ -157,7 +157,23 @@ func (s *server) home(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	s.db.Model(&dbBoard{}).Count(&boardCount)
 	s.db.Model(&dbUser{}).Count(&userCount)
 	s.db.Model(&dbAPRSReceived{}).Where("user_callsign = ?", user.Callsign).Count(&receivedCount)
-	s.view(w, r, "home", user, map[string]any{"Bulletins": bulletinCount, "Boards": boardCount, "Users": userCount, "Received": receivedCount}, "", "")
+
+	// The dashboard lists the boards and the newest bulletins, not only their
+	// totals: a count tells an operator nothing about where to go next.
+	boards := s.loadBoards()
+	latest := s.loadBulletins()
+	if len(latest) > 3 {
+		latest = latest[:3]
+	}
+	s.view(w, r, "home", user, map[string]any{
+		"Bulletins": bulletinCount,
+		"Boards":    boardCount,
+		"Users":     userCount,
+		"Received":  receivedCount,
+		"BoardList": boards,
+		"Counts":    s.boardMessageCounts(boards),
+		"Latest":    latest,
+	}, "", "")
 }
 
 func (s *server) profileForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
