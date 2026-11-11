@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -21,13 +23,53 @@ func openDatabase(path string) (*gorm.DB, error) {
 		return nil, err
 	}
 	sqlDB.SetMaxOpenConns(1)
-	if err := db.AutoMigrate(&dbUser{}, &dbBulletin{}, &dbBoard{}, &dbMessage{}, &dbAPRSSent{}, &dbAPRSSentPart{}, &dbAPRSReceived{}); err != nil {
+	if err := db.AutoMigrate(&dbUser{}, &dbBulletin{}, &dbBoard{}, &dbMessage{}, &dbAPRSSent{}, &dbAPRSSentPart{}, &dbAPRSReceived{},
+		&dbActivation{}, &dbToken{}, &dbRegistration{}, &dbSetting{}); err != nil {
+		return nil, err
+	}
+	if err := backfillActivated(db); err != nil {
 		return nil, err
 	}
 	if err := backfillRegistered(db); err != nil {
 		return nil, err
 	}
 	return db, nil
+}
+
+// backfillActivated marks pre-existing accounts as activated.
+//
+// The column defaults to false, which is right for a new registration and wrong
+// for every account that existed before activation was introduced. Two things
+// have to happen, and both are shared with the classic SSH BBS, which runs the
+// same migration against the same table:
+//
+//   - Rows where the column is NULL were created by the migration that added it
+//     rather than by an insert, so NULL is never a deliberate value. Correcting
+//     those on every start also repairs a database where an earlier version of
+//     this function recorded its marker without matching the NULL rows.
+//   - Rows that are explicitly false predate activation too, but only the first
+//     time: an account created later and deliberately left unactivated must stay
+//     that way. The marker row bounds it to one sweep, and it is the same marker
+//     the SSH BBS uses, so whichever application starts first does the sweep.
+func backfillActivated(db *gorm.DB) error {
+	const key = "migrated.activation"
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&dbUser{}).Where("activated IS NULL").UpdateColumn("activated", true).Error; err != nil {
+			return err
+		}
+		marker := dbSetting{}
+		err := tx.Where("key = ?", key).Take(&marker).Error
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err := tx.Model(&dbUser{}).Where("activated = ?", false).UpdateColumn("activated", true).Error; err != nil {
+			return err
+		}
+		return tx.Create(&dbSetting{Key: key, Value: "1"}).Error
+	})
 }
 
 // backfillRegistered gives accounts created before the column existed a

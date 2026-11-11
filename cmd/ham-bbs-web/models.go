@@ -17,6 +17,10 @@ type dbUser struct {
 	// Registered is when the account was created. It is written once and never
 	// changes, unlike FirstSeen/LastSeen which track presence.
 	Registered string
+	// Activated is false until the caller proves they can read the address they
+	// registered with. Accounts that predate activation are marked true by the
+	// backfill in database.go.
+	Activated bool
 }
 
 type dbBulletin struct {
@@ -82,6 +86,47 @@ type dbAPRSReceived struct {
 	To           string
 	Text         string
 	Raw          string
+}
+
+// The tables below are shared with the classic SSH BBS. It declares them in
+// bbs/cmd/bbs/tokens.go and bbs/cmd/bbs/ratelimit.go; the shapes here have to
+// match, or a row written by one application cannot be read by the other.
+
+// dbActivation is the pending activation code for one account. Only the hash is
+// stored, so a copy of the database cannot be used to activate an account.
+type dbActivation struct {
+	Callsign  string `gorm:"primaryKey;size:32"`
+	CodeHash  string `gorm:"size:64"`
+	ExpiresAt int64
+	Attempts  int
+	CreatedAt int64
+}
+
+// dbToken is a redeemable link token: a password reset, or one half of an email
+// change. The presented token is hashed and matched against TokenHash.
+type dbToken struct {
+	ID         uint   `gorm:"primaryKey"`
+	TokenHash  string `gorm:"uniqueIndex;size:64"`
+	Purpose    string `gorm:"index;size:32"`
+	Callsign   string `gorm:"index;size:32"`
+	Email      string `gorm:"size:160"`
+	ChangeID   string `gorm:"index;size:40"`
+	CreatedAt  int64
+	ExpiresAt  int64
+	ConsumedAt int64
+}
+
+// dbRegistration counts accounts created from one client address.
+type dbRegistration struct {
+	Address     string `gorm:"primaryKey;size:64"`
+	Count       int
+	WindowStart int64
+}
+
+// dbSetting is the key/value store both applications use for migration markers.
+type dbSetting struct {
+	Key   string `gorm:"primaryKey;size:64"`
+	Value string
 }
 
 type messageNode struct {
