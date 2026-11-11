@@ -208,6 +208,9 @@ const templates = `{{define "layout_start"}}
     .btn.danger:hover { filter: brightness(1.1); }
     .btn.small { padding: 7px 10px; font-size: 9.5px; letter-spacing: .1em; }
     .btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+    /* the sign-in hint: prose, then the command in a box that selects as a unit */
+    .sshhint { margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--rule); max-width: 760px; font-size: 12.5px; color: var(--muted); }
+    .sshhint code { display: inline-block; margin-top: 8px; padding: 8px 11px; border: 1px solid var(--rule-hi); background: #0b0d1e; color: var(--cyan); font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; user-select: all; }
     .switch { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
     .switch form { margin: 0; }
     .switch-state { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
@@ -401,6 +404,7 @@ const templates = `{{define "layout_start"}}
 {{define "login"}}{{template "layout_start" .}}
 <div class="pagehead"><div><p class="kicker">{{.Location}}</p><h1>{{tr .Lang "web_login"}}</h1></div></div>
 <form class="stack" method="post" action="/login"><div><label>{{tr .Lang "callsign_prompt"}}</label><input name="callsign" autocomplete="username" required autofocus></div><div><label>{{tr .Lang "web_bbs_password"}}</label><input name="password" type="password" autocomplete="current-password" required></div><div class="row"><button class="btn">{{tr .Lang "web_login"}}</button><a class="btn secondary" href="/register">{{tr .Lang "web_register"}}</a><a class="btn secondary" href="/forgot">{{tr .Lang "forgot_button"}}</a></div></form>
+<div class="sshhint"><span>{{tr .Lang "web_ssh_note"}}</span> <code>ssh -p 2222 bbs@bbs.ea7klk.es</code></div>
 {{template "layout_end" .}}{{end}}
 
 {{define "register"}}{{template "layout_start" .}}

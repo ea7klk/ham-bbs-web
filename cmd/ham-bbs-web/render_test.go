@@ -325,3 +325,38 @@ func around(s, needle string) string {
 	}
 	return s[start:end]
 }
+
+// The login page tells a signed-out caller that the board is also reachable over
+// SSH, with the command ready to copy. It is a fixed command for this
+// deployment, so the test pins the exact string rather than a shape.
+func TestLoginPageShowsTheSSHCommand(t *testing.T) {
+	s, sysop := fixtureWorld(t)
+	response := invokeHandler(s.loginForm, formRequest(http.MethodGet, "/login", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("login status = %d", response.Code)
+	}
+	body := response.Body.String()
+
+	if !strings.Contains(body, "ssh -p 2222 bbs@bbs.ea7klk.es") {
+		t.Fatal("the login page does not show the SSH command")
+	}
+	if !strings.Contains(body, `class="sshhint"`) {
+		t.Fatal("the SSH hint is not wearing its own class")
+	}
+	// The note is a sign-in hint, not chrome: it must not appear once signed in.
+	home := invokeUserHandler(s.home, formRequest(http.MethodGet, "/", nil), sysop)
+	if strings.Contains(home.Body.String(), "ssh -p 2222") {
+		t.Fatal("the SSH hint leaked into the signed-in pages")
+	}
+}
+
+// The note is translated; every language must have it.
+func TestSSHNoteIsTranslated(t *testing.T) {
+	text := translationsOnDisk(t)
+	for _, lang := range languageOrder {
+		value, ok := text[lang]["web_ssh_note"].(string)
+		if !ok || strings.TrimSpace(value) == "" {
+			t.Fatalf("web_ssh_note is missing for %q", lang)
+		}
+	}
+}

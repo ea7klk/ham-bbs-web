@@ -262,7 +262,8 @@
     "web_not_found_body": "Diese Seite gibt es nicht. Vielleicht wurde sie verschoben oder der Link ist veraltet.",
     "web_aprs_enable_action": "APRS einschalten",
     "web_aprs_disable_action": "APRS ausschalten",
-    "web_aprs_toggle_help": "Aus liefert das BBS keine an dich adressierten APRS-Nachrichten, sendet kein Positionsbeacon beim Anmelden und lässt dich von hier aus nicht senden."
+    "web_aprs_toggle_help": "Aus liefert das BBS keine an dich adressierten APRS-Nachrichten, sendet kein Positionsbeacon beim Anmelden und lässt dich von hier aus nicht senden.",
+    "web_ssh_note": "Auch per SSH erreichbar:"
   },
   "en": {
     "about_graphics": "Graphics: plain ANSI text, suitable for simple terminals.",
@@ -527,7 +528,8 @@
     "web_not_found_body": "That page is not here. It may have been moved, or the link may be out of date.",
     "web_aprs_enable_action": "Enable APRS",
     "web_aprs_disable_action": "Disable APRS",
-    "web_aprs_toggle_help": "Off, the BBS will not deliver APRS messages addressed to you, beacon your position on login, or let you transmit from here."
+    "web_aprs_toggle_help": "Off, the BBS will not deliver APRS messages addressed to you, beacon your position on login, or let you transmit from here.",
+    "web_ssh_note": "Also reachable via SSH:"
   },
   "es": {
     "about_graphics": "Gráficos: texto ANSI simple, apto para terminales sencillos.",
@@ -792,7 +794,8 @@
     "web_not_found_body": "Esa página no está aquí. Puede que se haya movido o que el enlace esté desactualizado.",
     "web_aprs_enable_action": "Activar APRS",
     "web_aprs_disable_action": "Desactivar APRS",
-    "web_aprs_toggle_help": "Desactivado, el BBS no entrega los mensajes APRS dirigidos a ti, no emite tu posición al entrar y no te deja transmitir desde aquí."
+    "web_aprs_toggle_help": "Desactivado, el BBS no entrega los mensajes APRS dirigidos a ti, no emite tu posición al entrar y no te deja transmitir desde aquí.",
+    "web_ssh_note": "También disponible por SSH:"
   },
   "fr": {
     "about_graphics": "Graphismes : texte ANSI simple, adapté aux terminaux simples.",
@@ -1057,6 +1060,7 @@
     "web_not_found_body": "Cette page n'existe pas. Elle a peut-être été déplacée, ou le lien est périmé.",
     "web_aprs_enable_action": "Activer APRS",
     "web_aprs_disable_action": "Désactiver APRS",
-    "web_aprs_toggle_help": "Désactivé, le BBS ne remet pas les messages APRS qui te sont adressés, n'émet pas ta position à la connexion et ne te laisse pas transmettre ici."
+    "web_aprs_toggle_help": "Désactivé, le BBS ne remet pas les messages APRS qui te sont adressés, n'émet pas ta position à la connexion et ne te laisse pas transmettre ici.",
+    "web_ssh_note": "Aussi accessible en SSH :"
   }
 }
