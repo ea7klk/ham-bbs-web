@@ -459,7 +459,10 @@ func TestAPRSHandlersAndOwnership(t *testing.T) {
 	if !savedUser.EnableAPRS {
 		t.Fatal("APRS toggle did not enable APRS")
 	}
-	if got := invokeUserHandler(s.aprsSend, formRequest(http.MethodPost, "/aprs/send", url.Values{"destination": {""}, "destination_ssid": {"0"}, "text": {}}), user); got.Code != http.StatusSeeOther {
+	// A real request reloads the account, so the send path sees the flag the
+	// toggle just wrote. Passing the pre-toggle struct here would test a state
+	// that cannot occur.
+	if got := invokeUserHandler(s.aprsSend, formRequest(http.MethodPost, "/aprs/send", url.Values{"destination": {""}, "destination_ssid": {"0"}, "text": {}}), &savedUser); got.Code != http.StatusSeeOther {
 		t.Fatalf("invalid destination APRS send status = %d", got.Code)
 	}
 	var sentCount int64
@@ -467,7 +470,7 @@ func TestAPRSHandlersAndOwnership(t *testing.T) {
 	if sentCount != 2 {
 		t.Fatalf("APRS send record count = %d, want 2", sentCount)
 	}
-	if got := invokeUserHandler(s.aprsReceivedReply, setPathValue(formRequest(http.MethodPost, "/aprs/received/1/reply", url.Values{"destination": {""}, "destination_ssid": {"0"}, "text": {"reply"}}), "id", strconv.Itoa(int(received.ID))), user); got.Code != http.StatusSeeOther {
+	if got := invokeUserHandler(s.aprsReceivedReply, setPathValue(formRequest(http.MethodPost, "/aprs/received/1/reply", url.Values{"destination": {""}, "destination_ssid": {"0"}, "text": {"reply"}}), "id", strconv.Itoa(int(received.ID))), &savedUser); got.Code != http.StatusSeeOther {
 		t.Fatalf("received reply status = %d", got.Code)
 	}
 	badForm := httptest.NewRequest(http.MethodPost, "/aprs/sent/delete", strings.NewReader("%zz"))

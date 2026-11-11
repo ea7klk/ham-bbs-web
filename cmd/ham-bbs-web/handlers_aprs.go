@@ -17,9 +17,7 @@ const defaultAPRSPageSize = 10
 var aprsPageSizes = []int{10, 25, 50}
 
 func (s *server) aprs(w http.ResponseWriter, r *http.Request, user *dbUser) {
-	_, sentPagination := s.sentAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/sent")
-	_, receivedPagination := s.receivedAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/received")
-	s.view(w, r, "aprs", user, aprsOverviewView{Sent: sentPagination, Received: receivedPagination}, "", "")
+	s.view(w, r, "aprs", user, s.aprsOverview(user), "", "")
 }
 
 func (s *server) aprsSent(w http.ResponseWriter, r *http.Request, user *dbUser) {
@@ -35,6 +33,14 @@ func (s *server) aprsReceived(w http.ResponseWriter, r *http.Request, user *dbUs
 }
 
 func (s *server) aprsSendForm(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	// The classic BBS refuses to open the send form while APRS is off for the
+	// profile, and it is the profile owner's own switch. Sending without it would
+	// make the setting mean nothing here, which is exactly how it read when the
+	// only control on the page was a label.
+	if !user.EnableAPRS {
+		s.view(w, r, "aprs", user, s.aprsOverview(user), "", s.t(user.Language, "aprs_enable_required"))
+		return
+	}
 	s.view(w, r, "aprs_send", user, nil, "", "")
 }
 
@@ -165,6 +171,14 @@ func (s *server) aprsReceivedReply(w http.ResponseWriter, r *http.Request, user 
 	msg, err := s.findReceivedAPRS(r.PathValue("id"), user.Callsign)
 	if err != nil {
 		s.notFound(w, r)
+		return
+	}
+	// Replying transmits, so it needs the same gate as sending; otherwise the
+	// reply form is a way around it. The message is resolved first so a stale
+	// link is still a 404 rather than a policy message.
+	if !user.EnableAPRS {
+		s.logBBSAction(user.Callsign, "web_aprs_reply_blocked", "reason=%q", "aprs disabled for profile")
+		s.view(w, r, "aprs", user, s.aprsOverview(user), "", s.t(user.Language, "aprs_enable_required"))
 		return
 	}
 	destination := composeAPRSDestination(r.FormValue("destination"), r.FormValue("destination_ssid"))
@@ -308,14 +322,53 @@ func (s *server) findReceivedAPRS(rawID, callsign string) (dbAPRSReceived, error
 	return msg, err
 }
 
+// aprsToggle switches this account's APRS flag. It is a single-click action: the
+// button in the "aprs_toggle" template carries the value to write, so there is no
+// second Save step to forget.
+//
+// The flag is not cosmetic. With it off the classic BBS will not deliver APRS
+// messages addressed to this callsign, will not beacon on login, and — see
+// aprsSendForm — this app will not transmit on the account's behalf.
 func (s *server) aprsToggle(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	enabled := r.FormValue("enable_aprs") == "true"
-	s.db.Model(user).Updates(map[string]any{"enable_aprs": enabled, "last_seen": now()})
+	// Named columns only: a whole-row save would rewrite the write-once fields
+	// from a copy read at the start of the request.
+	if err := s.db.Model(&dbUser{}).Where("callsign = ?", user.Callsign).
+		Updates(map[string]any{"enable_aprs": enabled, "last_seen": now()}).Error; err != nil {
+		s.logBBSAction(user.Callsign, "web_aprs_toggle_failed", "enabled=%t error=%q", enabled, err.Error())
+		s.view(w, r, "aprs", user, s.aprsOverview(user), "", err.Error())
+		return
+	}
 	s.logBBSAction(user.Callsign, "web_aprs_toggle", "enabled=%t", enabled)
-	http.Redirect(w, r, "/aprs/send", http.StatusSeeOther)
+	http.Redirect(w, r, aprsReturnTarget(r.FormValue("return_to")), http.StatusSeeOther)
+}
+
+// aprsReturnTarget keeps the caller where they were. Only paths under /aprs are
+// accepted, so the field cannot be used to bounce a signed-in caller to another
+// site or to an arbitrary endpoint.
+func aprsReturnTarget(raw string) string {
+	target := strings.TrimSpace(raw)
+	if target == "/aprs" || strings.HasPrefix(target, "/aprs/") {
+		return target
+	}
+	return "/aprs"
+}
+
+// aprsOverview gathers the counts the APRS landing page shows.
+func (s *server) aprsOverview(user *dbUser) aprsOverviewView {
+	_, sentPagination := s.sentAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/sent")
+	_, receivedPagination := s.receivedAPRSPage(user.Callsign, 1, defaultAPRSPageSize, "/aprs/received")
+	return aprsOverviewView{Sent: sentPagination, Received: receivedPagination}
 }
 
 func (s *server) aprsSend(w http.ResponseWriter, r *http.Request, user *dbUser) {
+	// The form is not the only way in: a POST straight at this route would
+	// otherwise transmit for an account that has APRS switched off.
+	if !user.EnableAPRS {
+		s.logBBSAction(user.Callsign, "web_aprs_send_blocked", "reason=%q", "aprs disabled for profile")
+		s.view(w, r, "aprs", user, s.aprsOverview(user), "", s.t(user.Language, "aprs_enable_required"))
+		return
+	}
 	destination := composeAPRSDestination(r.FormValue("destination"), r.FormValue("destination_ssid"))
 	text := r.FormValue("text")
 	sent, ok := s.sendAPRSMessage(user.Callsign, destination, text)
