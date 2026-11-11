@@ -27,11 +27,14 @@ func parseTemplates(text map[string]map[string]any) *template.Template {
 			}
 			return ""
 		},
-		"selected": func(a, b string) string {
+		// selected returns an attribute, not a bare word. A plain string is
+		// refused in an attribute position by html/template, which emits
+		// ZgotmplZ instead — so this helper silently did nothing before.
+		"selected": func(a, b string) template.HTMLAttr {
 			if a == b {
-				return "selected"
+				return template.HTMLAttr("selected")
 			}
-			return ""
+			return template.HTMLAttr("")
 		},
 		"dict": func(values ...any) map[string]any {
 			m := map[string]any{}
