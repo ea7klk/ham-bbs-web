@@ -239,15 +239,34 @@ func formatAddress(name, address string) string {
 	return mime.QEncoding.Encode("utf-8", name) + " <" + address + ">"
 }
 
-// isPlaceholderValue reports whether a configured secret is empty or still the
-// value shipped in .env.example.
-func isPlaceholderValue(value string) bool {
-	value = strings.TrimSpace(value)
-	if value == "" {
+// isPlaceholderValue reports whether a configured secret is empty or still a
+// value a person leaves behind when deferring the real one.
+//
+// The rule is the classic SSH BBS's, character for character. It is deliberately
+// narrow: matching a substring like "secret" anywhere would reject a real
+// password that happens to contain an ordinary word, so the bare words are
+// matched exactly and the template markers are matched by shape.
+func isPlaceholderValue(v string) bool {
+	v = strings.TrimSpace(v)
+	if v == "" {
 		return true
 	}
-	lower := strings.ToLower(value)
-	for _, marker := range []string{"change-this", "changeme", "placeholder", "your-password"} {
+	lower := strings.ToLower(v)
+	for _, exact := range []string{"changeme", "change-me", "change_me", "password", "placeholder", "secret", "todo", "xxx"} {
+		if lower == exact {
+			return true
+		}
+	}
+	if strings.HasPrefix(lower, "change-this") || strings.HasPrefix(lower, "change_this") {
+		return true
+	}
+	// __FILL_ME__, <your-password>, {{ password }} and similar templates.
+	if (strings.HasPrefix(lower, "__") && strings.HasSuffix(lower, "__")) ||
+		(strings.HasPrefix(lower, "<") && strings.HasSuffix(lower, ">")) ||
+		(strings.HasPrefix(lower, "{{") && strings.HasSuffix(lower, "}}")) {
+		return true
+	}
+	for _, marker := range []string{"fill_me", "fillme", "replace_with", "replace-with", "set_me", "setme", "insert_password"} {
 		if strings.Contains(lower, marker) {
 			return true
 		}

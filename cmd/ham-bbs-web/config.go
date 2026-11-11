@@ -175,13 +175,18 @@ func newServer() (*server, error) {
 		return nil, err
 	}
 	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle(), mail: newMailerFromEnv()}
+	// Say once at startup whether mail is usable, rather than discovering it on
+	// the first send. The classic SSH BBS records the same two states, so an
+	// operator comparing the two logs sees the same answer from both.
+	//
+	// The consequence is worth naming: without mail, registration cannot verify
+	// the address, so the account is activated immediately. That is the right
+	// trade-off for a deployment with no mail at all, and the wrong one when mail
+	// is configured on only one of the two services.
 	if problem := app.mail.Problem(); problem != "" {
-		// Say it once at startup rather than failing every send later, and say
-		// what it costs: without mail, registration cannot verify the address, so
-		// the account is activated immediately. The SSH BBS makes the same
-		// trade-off. Configure BBS_SMTP_HOST on both or on neither, or the two
-		// surfaces will disagree about whether an account is verified.
-		log.Printf("outbound mail disabled (%s): registrations will skip email activation", problem)
+		log.Printf("mail_disabled: %s; registrations will skip email activation", problem)
+	} else {
+		log.Printf("mail_enabled: host=%s from=%s security=%s", app.mail.cfg.host, app.mail.cfg.from, app.mail.cfg.security)
 	}
 	if err := app.seedDefaultData(); err != nil {
 		return nil, err
