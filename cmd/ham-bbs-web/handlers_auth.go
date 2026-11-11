@@ -158,21 +158,35 @@ func (s *server) home(w http.ResponseWriter, r *http.Request, user *dbUser) {
 	s.db.Model(&dbUser{}).Count(&userCount)
 	s.db.Model(&dbAPRSReceived{}).Where("user_callsign = ?", user.Callsign).Count(&receivedCount)
 
-	// The dashboard lists the boards and the newest bulletins, not only their
-	// totals: a count tells an operator nothing about where to go next.
+	// The dashboard leads with the newest bulletin, then lists the boards and the
+	// bulletins before it: a count tells an operator nothing about where to go
+	// next, and the announcement at the top of the board is the thing most likely
+	// to have changed since their last visit.
+	//
+	// loadBulletins returns position ascending, and a new bulletin takes the next
+	// position, so the newest is the *last* row — not the first.
 	boards := s.loadBoards()
-	latest := s.loadBulletins()
-	if len(latest) > 3 {
-		latest = latest[:3]
+	bulletins := s.loadBulletins()
+	var pinned *dbBulletin
+	older := []dbBulletin{}
+	if n := len(bulletins); n > 0 {
+		pinned = &bulletins[n-1]
+		for i := n - 2; i >= 0; i-- {
+			older = append(older, bulletins[i])
+		}
+	}
+	if len(older) > 3 {
+		older = older[:3]
 	}
 	s.view(w, r, "home", user, map[string]any{
-		"Bulletins": bulletinCount,
-		"Boards":    boardCount,
-		"Users":     userCount,
-		"Received":  receivedCount,
-		"BoardList": boards,
-		"Counts":    s.boardMessageCounts(boards),
-		"Latest":    latest,
+		"Bulletins":      bulletinCount,
+		"Boards":         boardCount,
+		"Users":          userCount,
+		"Received":       receivedCount,
+		"BoardList":      boards,
+		"Counts":         s.boardMessageCounts(boards),
+		"LatestBulletin": pinned,
+		"Latest":         older,
 	}, "", "")
 }
 

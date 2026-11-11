@@ -115,6 +115,10 @@ const templates = `{{define "layout_start"}}
     .logo i { width: 18px; height: 18px; flex: none; display: block; background: conic-gradient(from 210deg, var(--violet), var(--cyan), var(--pink), var(--violet)); }
     .appname { font-size: 15px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; text-decoration: none; }
     .sub { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    /* The identity line carries a URL and a command, so it keeps its case: the
+       uppercase above would turn "ssh -p" into "ssh -P", which is not the port
+       option and would fail if copied. */
+    .sub.ident { text-transform: none; letter-spacing: .04em; font-size: 11.5px; overflow-wrap: anywhere; }
     .head-meta { border-left: 2px solid var(--rule-hi); padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; justify-content: center; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
     .head-meta .who b { color: var(--cyan); letter-spacing: .06em; }
     .head-meta .role { font-style: normal; color: var(--amber); }
@@ -142,6 +146,15 @@ const templates = `{{define "layout_start"}}
     .pageactions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     /* ---- hero ---- */
+    /* The pinned bulletin: the page's first element, so it gets weight without
+       becoming a different design — a rule, a tinted panel and a readable title. */
+    .pinned { border: 1px solid var(--rule-hi); border-left: 3px solid var(--cyan); background: linear-gradient(180deg, #12152e, #0e1024); padding: 16px 18px; margin-bottom: 26px; }
+    .pinned .kicker { margin: 0 0 8px; }
+    .pinned h2 { margin: 0 0 10px; font-size: clamp(17px, 2.4vw, 23px); line-height: 1.15; letter-spacing: -.01em; text-transform: none; color: var(--ink); }
+    .pinned .pinned-body { margin: 0 0 12px; font-size: 13.5px; }
+    .pinned .metaline { margin: 0; }
+    .pinned .metaline a { color: var(--cyan); text-decoration: none; }
+    .pinned .metaline a:hover { text-decoration: underline; }
     .hero { padding: 18px 0 26px; border-bottom: 2px solid var(--rule-hi); }
     .hero h1 { font-size: clamp(26px, 5vw, 44px); max-width: 20ch; }
     .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
@@ -178,6 +191,7 @@ const templates = `{{define "layout_start"}}
     .tile .meta { display: block; margin-top: 8px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
     .tile:hover h2, .tile:hover .metric { color: var(--cyan); }
     .split { display: grid; grid-template-columns: 1.6fr 1fr; gap: 34px; margin-top: 26px; }
+    .split.single { grid-template-columns: 1fr; }
     /* stacked cards share one hairline instead of each carrying its own box */
     .cards { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-bottom: 24px; }
     .cards > .card { border: 0; }
@@ -370,7 +384,7 @@ const templates = `{{define "layout_start"}}
   <div class="head{{if not .User}} solo{{end}}">
     <div class="head-main">
       <div class="logo"><i aria-hidden="true"></i><a class="appname" href="/">{{.AppName}}</a></div>
-      <div class="sub">{{.Location}} · {{.Topic}}</div>
+      <div class="sub ident">https://bbs.ea7klk.es · The web companion to ssh -p 2222 bbs@bbs.ea7klk.es</div>
     </div>
     {{if .User}}
     <div class="head-meta">
@@ -435,6 +449,17 @@ const templates = `{{define "layout_start"}}
 {{define "user_fields"}}{{if .RequireCallsign}}<div><label>{{tr .Lang "callsign_prompt"}}</label><input name="callsign" value="{{.Callsign}}" required></div>{{end}}<div class="cols"><div><label>{{tr .Lang "full_name"}}</label><input name="full_name" value="{{.User.FullName}}" required></div><div><label>{{tr .Lang "email"}}</label><input name="email" type="email" value="{{.User.Email}}" required></div></div><div class="cols"><div><label>{{tr .Lang "maidenhead"}}</label><input name="maidenhead" value="{{.User.Maidenhead}}"></div><div><label>{{tr .Lang "language"}}</label><select name="language">{{range .Languages}}<option value="{{.Code}}" {{selected $.User.Language .Code}}>{{.Name}}</option>{{end}}</select></div></div><div class="cols"><div><label>{{tr .Lang "qth"}}</label><input name="qth" value="{{.User.QTH}}"></div><div><label>{{tr .Lang "rig"}}</label><input name="rig" value="{{.User.Rig}}"></div></div><div><label>{{tr .Lang "enable_aprs"}}</label><select name="enable_aprs"><option value="false">false</option><option value="true" {{if .User.EnableAPRS}}selected{{end}}>true</option></select></div><div class="cols"><div><label>{{if .RequirePassword}}{{tr .Lang "password"}}{{else}}{{tr .Lang "new_password"}}{{end}}</label><input name="new_password" type="password" {{if .RequirePassword}}required{{end}}></div><div><label>{{tr .Lang "verify_password"}}</label><input name="verify_password" type="password" {{if .RequirePassword}}required{{end}}></div></div>{{end}}
 
 {{define "home"}}{{template "layout_start" .}}
+{{with .Data.LatestBulletin}}
+{{/* The newest bulletin leads the page: it is the thing most likely to have
+     changed since the last visit, and it is the only content here that someone
+     else wrote. */}}
+<section class="pinned" aria-labelledby="pinned-title">
+  <p class="kicker">{{tr $.Lang "web_latest_bulletin"}}</p>
+  <h2 id="pinned-title">{{.Title}}</h2>
+  <p class="pre pinned-body">{{.Body}}</p>
+  <p class="metaline">{{.Updated}}{{if .From}} · {{.From}}{{end}} <a href="/bulletins">{{tr $.Lang "menu_bulletins"}} →</a></p>
+</section>
+{{end}}
 <section class="hero">
   <p class="kicker">{{tr .Lang "web_dashboard"}}</p>
   <h1>{{.AppName}}</h1>
@@ -447,15 +472,17 @@ const templates = `{{define "layout_start"}}
   <div class="cell"><dt>{{tr .Lang "menu_directory"}}</dt><dd>{{.Data.Users}}</dd></div>
   <div class="cell"><dt>{{tr .Lang "aprs_received_messages"}}</dt><dd>{{.Data.Received}}</dd></div>
 </dl>
-<div class="split">
+<div class="split{{if not .Data.Latest}} single{{end}}">
   <section>
     <div class="strip"><h2>{{tr .Lang "web_message_boards"}}</h2><span>{{tr .Lang "menu_messages"}}</span></div>
     <div class="rows">{{range .Data.BoardList}}<a class="rowlink" href="/boards/{{.ID}}"><span><b>{{.Name}}</b><small>{{.Description}}</small></span><span class="n">{{index $.Data.Counts .ID}} →</span></a>{{else}}<p class="muted">{{tr .Lang "no_boards"}}</p>{{end}}</div>
   </section>
+  {{if .Data.Latest}}
   <aside>
     <div class="strip"><h2>{{tr .Lang "menu_bulletins"}}</h2><a class="btn secondary small" href="/bulletins">{{tr .Lang "web_detail"}}</a></div>
-    <div class="rows">{{range .Data.Latest}}<a class="rowlink" href="/bulletins"><span><b>{{.Title}}</b><small>{{.Updated}}{{if .From}} · {{.From}}{{end}}</small></span></a>{{else}}<p class="muted">{{tr .Lang "no_bulletins"}}</p>{{end}}</div>
+    <div class="rows">{{range .Data.Latest}}<a class="rowlink" href="/bulletins"><span><b>{{.Title}}</b><small>{{.Updated}}{{if .From}} · {{.From}}{{end}}</small></span></a>{{end}}</div>
   </aside>
+  {{end}}
 </div>
 {{template "layout_end" .}}{{end}}
 

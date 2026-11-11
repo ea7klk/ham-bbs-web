@@ -367,10 +367,37 @@ func TestLoginPageShowsTheSSHCommand(t *testing.T) {
 	if !strings.Contains(body, `class="sshhint"`) {
 		t.Fatal("the SSH hint is not wearing its own class")
 	}
-	// The note is a sign-in hint, not chrome: it must not appear once signed in.
+	// The hint block is a sign-in aid, so it must not appear once signed in. The
+	// header identity line also names the SSH command, by design, and does appear
+	// on every page — so this checks the block, not the string.
 	home := invokeUserHandler(s.home, formRequest(http.MethodGet, "/", nil), sysop)
-	if strings.Contains(home.Body.String(), "ssh -p 2222") {
-		t.Fatal("the SSH hint leaked into the signed-in pages")
+	if strings.Contains(home.Body.String(), `class="sshhint"`) {
+		t.Fatal("the sign-in hint block appeared on a signed-in page")
+	}
+	if !strings.Contains(home.Body.String(), `class="sub ident"`) {
+		t.Fatal("the header identity line is missing from a signed-in page")
+	}
+}
+
+// The header line names the site and the terminal, in the operator's own words.
+// It keeps its case: the surrounding style uppercases, which would turn "ssh -p"
+// into "ssh -P" and show a command that does not work when copied.
+func TestHeaderIdentityLine(t *testing.T) {
+	s, sysop := fixtureWorld(t)
+	const want = "https://bbs.ea7klk.es · The web companion to ssh -p 2222 bbs@bbs.ea7klk.es"
+
+	for _, page := range []*httptest.ResponseRecorder{
+		invokeHandler(s.loginForm, formRequest(http.MethodGet, "/login", nil)),
+		invokeUserHandler(s.home, formRequest(http.MethodGet, "/", nil), sysop),
+	} {
+		if !strings.Contains(page.Body.String(), want) {
+			t.Fatalf("the header line is not %q", want)
+		}
+	}
+	// A CSS check, because the rule is what would break it: no uppercase
+	// transform on this class.
+	if !strings.Contains(strings.Join(strings.Fields(templates), " "), ".sub.ident { text-transform: none;") {
+		t.Fatal("the identity line does not opt out of the uppercase transform")
 	}
 }
 

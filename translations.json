@@ -362,7 +362,8 @@
     "aprs_section_prompt": "Welche Nachrichten?",
     "aprs_section_direct_desc": "Nachrichten mit anderen Stationen.",
     "aprs_section_aprsph_desc": "Verkehr mit dem APRSPH-Netz-Bot.",
-    "aprs_section_thursday_desc": "Gruppenserver-Verkehr von ANSRVR, den #APRSThursday nutzt. Andere abonnierte Gruppen erscheinen ebenfalls hier."
+    "aprs_section_thursday_desc": "Gruppenserver-Verkehr von ANSRVR, den #APRSThursday nutzt. Andere abonnierte Gruppen erscheinen ebenfalls hier.",
+    "web_latest_bulletin": "Neuestes Bulletin"
   },
   "en": {
     "about_graphics": "Graphics: plain ANSI text, suitable for simple terminals.",
@@ -727,7 +728,8 @@
     "aprs_section_prompt": "Which messages?",
     "aprs_section_direct_desc": "Messages exchanged with other stations.",
     "aprs_section_aprsph_desc": "Traffic with the APRSPH net bot.",
-    "aprs_section_thursday_desc": "Group-server traffic from ANSRVR, which #APRSThursday uses. Other groups you have joined appear here too."
+    "aprs_section_thursday_desc": "Group-server traffic from ANSRVR, which #APRSThursday uses. Other groups you have joined appear here too.",
+    "web_latest_bulletin": "Latest bulletin"
   },
   "es": {
     "about_graphics": "Gráficos: texto ANSI simple, apto para terminales sencillos.",
@@ -1092,7 +1094,8 @@
     "aprs_section_prompt": "¿Qué mensajes?",
     "aprs_section_direct_desc": "Mensajes intercambiados con otras estaciones.",
     "aprs_section_aprsph_desc": "Tráfico con el bot de la red APRSPH.",
-    "aprs_section_thursday_desc": "Tráfico del servidor de grupos ANSRVR, que usa #APRSThursday. También aparecen otros grupos a los que te hayas unido."
+    "aprs_section_thursday_desc": "Tráfico del servidor de grupos ANSRVR, que usa #APRSThursday. También aparecen otros grupos a los que te hayas unido.",
+    "web_latest_bulletin": "Último boletín"
   },
   "fr": {
     "about_graphics": "Graphismes : texte ANSI simple, adapté aux terminaux simples.",
@@ -1457,6 +1460,7 @@
     "aprs_section_prompt": "Quels messages ?",
     "aprs_section_direct_desc": "Messages échangés avec d'autres stations.",
     "aprs_section_aprsph_desc": "Trafic avec le bot du réseau APRSPH.",
-    "aprs_section_thursday_desc": "Trafic du serveur de groupes ANSRVR, utilisé par #APRSThursday. Les autres groupes rejoints apparaissent aussi ici."
+    "aprs_section_thursday_desc": "Trafic du serveur de groupes ANSRVR, utilisé par #APRSThursday. Les autres groupes rejoints apparaissent aussi ici.",
+    "web_latest_bulletin": "Dernier bulletin"
   }
 }
