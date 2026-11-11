@@ -116,3 +116,17 @@ func (s *server) createMessage(msg dbMessage) (uint, error) {
 	})
 	return msg.ID, err
 }
+
+// updateMessage rewrites one message's editable text, sanitised the same way as
+// a new post. The SSH BBS offers the same correction path to a sysop; without it
+// a typo could only be fixed by deleting the message and its replies.
+func (s *server) updateMessage(id uint, subject, body, edited string) error {
+	if id == 0 {
+		return fmt.Errorf("updateMessage: missing message id")
+	}
+	return s.db.Model(&dbMessage{}).Where("id = ?", id).Updates(map[string]any{
+		"subject": sanitizeSingleLineText(subject),
+		"body":    sanitizeMultilineText(body),
+		"edited":  sanitizeSingleLineText(edited),
+	}).Error
+}

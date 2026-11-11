@@ -7,15 +7,26 @@ import (
 func (s *server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", s.requireAuth(s.home))
+	// Public account pages. The tokenised links are what the SSH BBS mails, so
+	// they must resolve without a session.
 	mux.HandleFunc("GET /login", s.loginForm)
 	mux.HandleFunc("POST /login", s.loginPost)
 	mux.HandleFunc("GET /register", s.registerForm)
 	mux.HandleFunc("POST /register", s.registerPost)
+	mux.HandleFunc("GET /forgot", s.public(s.forgotForm))
+	mux.HandleFunc("POST /forgot", s.public(s.forgotPost))
+	mux.HandleFunc("GET /activate", s.public(s.activateForm))
+	mux.HandleFunc("POST /activate", s.public(s.activatePost))
+	mux.HandleFunc("GET /reset", s.public(s.resetForm))
+	mux.HandleFunc("POST /reset", s.public(s.resetPost))
+	mux.HandleFunc("GET /email/confirm", s.public(s.emailConfirm))
 	mux.HandleFunc("POST /logout", s.logoutPost)
 	mux.HandleFunc("POST /language", s.requireAuth(s.languagePost))
 	mux.HandleFunc("GET /profile", s.requireAuth(s.profileForm))
 	mux.HandleFunc("POST /profile", s.requireAuth(s.profilePost))
 	mux.HandleFunc("GET /directory", s.requireAuth(s.directory))
+	mux.HandleFunc("GET /about", s.requireAuth(s.about))
+	mux.HandleFunc("GET /resources", s.requireAuth(s.resources))
 	mux.HandleFunc("GET /bulletins", s.requireAuth(s.bulletins))
 	mux.HandleFunc("GET /bulletins/new", s.requireSysop(s.bulletinNew))
 	mux.HandleFunc("POST /bulletins/new", s.requireSysop(s.bulletinCreate))
@@ -29,6 +40,8 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /boards/{id}/post", s.requireAuth(s.messagePost))
 	mux.HandleFunc("POST /messages/{id}/reply", s.requireAuth(s.messageReply))
 	mux.HandleFunc("POST /messages/{id}/delete", s.requireSysop(s.messageDelete))
+	mux.HandleFunc("GET /messages/{id}/edit", s.requireSysop(s.messageEditForm))
+	mux.HandleFunc("POST /messages/{id}/edit", s.requireSysop(s.messageUpdate))
 	mux.HandleFunc("GET /boards/{id}/edit", s.requireSysop(s.boardEdit))
 	mux.HandleFunc("POST /boards/{id}/edit", s.requireSysop(s.boardUpdate))
 	mux.HandleFunc("POST /boards/{id}/delete", s.requireSysop(s.boardDelete))
@@ -57,6 +70,19 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "same-origin")
 		next.ServeHTTP(w, r)
 	})
+}
+
+// public serves a page that works with or without a session. A signed-in caller
+// gets their language and their navigation; an anonymous one gets neither, which
+// is what a mailed link needs.
+func (s *server) public(next func(http.ResponseWriter, *http.Request, *dbUser)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, err := s.currentUser(r)
+		if err != nil {
+			user = nil
+		}
+		next(w, r, user)
+	}
 }
 
 func (s *server) requireAuth(next func(http.ResponseWriter, *http.Request, *dbUser)) http.HandlerFunc {

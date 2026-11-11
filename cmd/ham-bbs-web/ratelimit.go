@@ -127,3 +127,22 @@ func (t *authThrottle) prune(at time.Time) {
 		}
 	}
 }
+
+// pruneAuthThrottle drops entries that have been idle past their retention. It
+// is called from the daily account-table cleanup; the insert path prunes as
+// well, but only once the table has grown, so this keeps a quiet deployment from
+// holding stale rows indefinitely.
+func (s *server) pruneAuthThrottle(at time.Time) {
+	s.throttle.pruneAll(at)
+}
+
+func (t *authThrottle) pruneAll(at time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	cutoff := at.Add(-authFailureRetention)
+	for key, entry := range t.entries {
+		if entry.windowStart.Before(cutoff) && entry.lockedUntil.Before(cutoff) {
+			delete(t.entries, key)
+		}
+	}
+}
