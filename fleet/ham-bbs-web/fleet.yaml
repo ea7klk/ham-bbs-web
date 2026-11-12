@@ -1,0 +1,8 @@
+# Ham BBS web frontend. Moved out of the infra repository on 2026-11-12.
+# It shares the ham-bbs namespace and the data claim owned by
+# ea7klk/simple-ham-bbs' fleet/ham-bbs bundle.
+defaultNamespace: ham-bbs
+kustomize:
+  dir: .
+helm:
+  takeOwnership: true

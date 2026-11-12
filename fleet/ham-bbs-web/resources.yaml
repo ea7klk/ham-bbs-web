@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bbs-web
+  namespace: ham-bbs
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bbs-web
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bbs-web
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - /usr/local/bin/ham-bbs-web
+        env:
+        - name: BBS_SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: BBS_SMTP_PASSWORD
+              name: bbs-env
+        envFrom:
+        - secretRef:
+            name: bbs-smtp
+        - secretRef:
+            name: bbs-web-env
+        image: ghcr.io/ea7klk/ham-bbs-web@sha256:34442799c6333bd7ebc2914408cd3613b51905652cc9b918c9795cc5e32ec03d
+        imagePullPolicy: IfNotPresent
+        name: bbs-web
+        ports:
+        - containerPort: 8080
+          name: p8080-tcp
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        startupProbe:
+          failureThreshold: 180
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 1
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/bbs
+          name: v-daedbc100d077ade
+        - mountPath: /dev/shm
+          name: shm
+        workingDir: /app
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: registry-credentials
+      nodeSelector:
+        kubernetes.io/hostname: spainip-k3s
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 120
+      volumes:
+      - name: v-daedbc100d077ade
+        persistentVolumeClaim:
+          claimName: v-daedbc100d077ade
+      - emptyDir:
+          medium: Memory
+          sizeLimit: '67108864'
+        name: shm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bbs-web
+  namespace: ham-bbs
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  clusterIP: 10.43.140.36
+  clusterIPs:
+  - 10.43.140.36
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: p8080-tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/name: bbs-web
+  sessionAffinity: None
+  type: ClusterIP
