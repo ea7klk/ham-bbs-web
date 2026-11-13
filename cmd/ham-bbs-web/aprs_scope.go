@@ -1,45 +1,124 @@
 package main
 
 import (
-	"fmt"
 	"strings"
-
-	"gorm.io/gorm"
 )
 
 // APRS message sections.
 //
-// Bot traffic used to share the list with messages from other operators, so
-// somebody looking for a reply from a station had to page past net check-ins,
-// acknowledgements and group notices to find it. The two bots are identifiable
-// from the stored row alone — the peer *is* the bot: a sent row addresses it, a
-// received row comes from it.
+// Version one classified by peer callsign alone: anything from ANSRVR was
+// "#APRSThursday". Production traffic showed that wrong on the larger half of the
+// data.
 //
-// The split is by peer, not by content. An acknowledgement from ANSRVR
-// ("ack1B}") carries no group name, so a content rule would file it with the
-// wrong traffic and hide it from the message it acknowledges.
+// ANSRVR is the *group server*, not a Thursday bot: it carries AARN, NEAPRS and
+// every other group this station has joined. And the #APRSThursday conversation
+// does not come from ANSRVR at all — it is relayed by the participants, each
+// message tagged with the group in the body:
 //
-// The rule is the classic BBS's (bbs/cmd/bbs/aprs_scope.go). It has to be: both
-// applications show the same rows, and a message filed in one section here and
-// another there would be a bug with no single owner.
+//	N:HOTG happy aprsthursday!!!        from KB3KBR-2
+//	N:HOTG Saludos desde Republica...   from HI3RRR-7
+//
+// Measured on the live database: 478 messages carry the N:HOTG tag from 413
+// distinct stations, and 6 came from ANSRVR. Peer-only classification put all 472
+// in "other stations": the Thursday section was nearly empty while the net sat
+// elsewhere.
+//
+// The rule, identical to the classic BBS's (bbs/cmd/bbs/aprs_scope.go):
+//
+//  1. A group tag in the body decides — "N:HOTG …" is Thursday, any other
+//     "N:<GROUP> …" is group-server traffic.
+//  2. Otherwise the peer decides: APRSPH is the net bot, ANSRVR the group server.
+//  3. ANSRVR traffic that names HOTG without a tag (our own "CQ HOTG") is Thursday.
+//
+// An acknowledgement names no group, so it lands with the group server rather
+// than being guessed into a net it may not belong to.
+//
+// Classification happens here, in Go, rather than in SQL. A SQL predicate would
+// have to re-implement the tag parser — the same duplication that produced a real
+// bug once, when a five-character tag limit silently dropped "NEAPRS" into the
+// wrong section. A user's history is bounded by the classic BBS's retention (500
+// received, 200 sent), so loading it and filtering here costs nothing and keeps
+// one implementation of the rule per repository.
 
 // aprsScope names one section of the APRS history.
 type aprsScope string
 
 const (
-	// aprsScopeDirect is traffic with another station: everything not addressed
-	// to, or sent by, a bot.
+	// aprsScopeDirect is traffic with another station that is not group traffic.
 	aprsScopeDirect aprsScope = "direct"
 	// aprsScopeAPRSPH is the #APRSPH net bot.
 	aprsScopeAPRSPH aprsScope = "aprsph"
-	// aprsScopeThursday is the ANSRVR group server, which carries #APRSThursday
-	// and any other group the station has joined.
+	// aprsScopeThursday is the #APRSThursday net: group traffic tagged HOTG,
+	// whichever station relayed it.
 	aprsScopeThursday aprsScope = "thursday"
+	// aprsScopeGroups is the rest of the group server's traffic — other groups,
+	// and acknowledgements that name no group.
+	aprsScopeGroups aprsScope = "groups"
 )
 
-// aprsScopes is the display order, direct first because it is what most callers
-// are looking for.
-var aprsScopes = []aprsScope{aprsScopeDirect, aprsScopeAPRSPH, aprsScopeThursday}
+// aprsScopes is the display order: what most callers want first, the vague bucket
+// last.
+var aprsScopes = []aprsScope{
+	aprsScopeDirect, aprsScopeAPRSPH, aprsScopeThursday, aprsScopeGroups,
+}
+
+const (
+	// aprsThursdayGroup is the ANSRVR group name for #APRSThursday.
+	aprsThursdayGroup = "HOTG"
+	// aprsGroupTagMaxLen bounds a group name in an "N:<GROUP>" tag. Group names
+	// are short in practice — HOTG, AARN, NEAPRS — but this is a shape check, not
+	// a membership test: a longer token is not a group tag.
+	aprsGroupTagMaxLen = 8
+)
+
+// aprsGroupTag extracts the group from a group-relayed body.
+//
+// The tag is "N:", one to eight characters, then a space or the end. Anything
+// that does not match that shape is not a tag, so ordinary text beginning with
+// "N:" cannot masquerade as one.
+func aprsGroupTag(text string) (string, bool) {
+	rest, ok := strings.CutPrefix(strings.ToUpper(strings.TrimSpace(text)), "N:")
+	if !ok {
+		return "", false
+	}
+	end := strings.IndexAny(rest, " {")
+	if end < 0 {
+		end = len(rest)
+	}
+	group := strings.TrimSpace(rest[:end])
+	if group == "" || len(group) > aprsGroupTagMaxLen {
+		return "", false
+	}
+	return group, true
+}
+
+// aprsMentionsThursday reports whether a body names the #APRSThursday group or
+// net, which is how our own outgoing commands identify it: "CQ HOTG", "K HOTG".
+func aprsMentionsThursday(text string) bool {
+	upper := strings.ToUpper(text)
+	return strings.Contains(upper, aprsThursdayGroup) || strings.Contains(upper, "APRSTHURSDAY")
+}
+
+// aprsScopeOfMessage classifies one stored message. peer is the other end of the
+// conversation — the sender of a received message, the addressee of a sent one.
+func aprsScopeOfMessage(peer, text string) aprsScope {
+	if group, ok := aprsGroupTag(text); ok {
+		if group == aprsThursdayGroup {
+			return aprsScopeThursday
+		}
+		return aprsScopeGroups
+	}
+	switch baseCallsign(peer) {
+	case aprsBotAPRSPH:
+		return aprsScopeAPRSPH
+	case aprsBotANSRVR:
+		if aprsMentionsThursday(text) {
+			return aprsScopeThursday
+		}
+		return aprsScopeGroups
+	}
+	return aprsScopeDirect
+}
 
 // aprsScopeOfParam maps the ?section= value to a section. An absent value is the
 // direct section, so /aprs/received keeps working as it did.
@@ -51,17 +130,10 @@ func aprsScopeOfParam(value string) (aprsScope, bool) {
 		return aprsScopeAPRSPH, true
 	case aprsScopeThursday:
 		return aprsScopeThursday, true
+	case aprsScopeGroups:
+		return aprsScopeGroups, true
 	}
 	return "", false
-}
-
-// aprsScopeOfPeer classifies a peer callsign-SSID.
-//
-// The SSID is ignored: the bots answer from their base callsign, but a station
-// may address APRSPH-0 and an acknowledgement can arrive from ANSRVR with any
-// SSID.
-func aprsScopeOfPeer(peer string) aprsScope {
-	return aprsScopeOfBase(baseCallsign(peer))
 }
 
 // baseCallsign drops the SSID from a callsign.
@@ -73,17 +145,6 @@ func baseCallsign(peer string) string {
 	return base
 }
 
-// aprsScopeOfBase classifies an already-normalised base callsign.
-func aprsScopeOfBase(base string) aprsScope {
-	switch base {
-	case aprsBotAPRSPH:
-		return aprsScopeAPRSPH
-	case aprsBotANSRVR:
-		return aprsScopeThursday
-	}
-	return aprsScopeDirect
-}
-
 // labelKey and descriptionKey name the translation keys for a section.
 func (sc aprsScope) labelKey() string {
 	switch sc {
@@ -91,6 +152,8 @@ func (sc aprsScope) labelKey() string {
 		return "aprs_section_aprsph"
 	case aprsScopeThursday:
 		return "aprs_section_thursday"
+	case aprsScopeGroups:
+		return "aprs_section_groups"
 	}
 	return "aprs_section_direct"
 }
@@ -101,6 +164,8 @@ func (sc aprsScope) descriptionKey() string {
 		return "aprs_section_aprsph_desc"
 	case aprsScopeThursday:
 		return "aprs_section_thursday_desc"
+	case aprsScopeGroups:
+		return "aprs_section_groups_desc"
 	}
 	return "aprs_section_direct_desc"
 }
@@ -114,102 +179,28 @@ func (sc aprsScope) queryValue() string {
 	return string(sc)
 }
 
-// bots are the base callsigns this section is built from.
-func (sc aprsScope) bots() []string {
-	switch sc {
-	case aprsScopeAPRSPH:
-		return []string{aprsBotAPRSPH}
-	case aprsScopeThursday:
-		return []string{aprsBotANSRVR}
-	}
-	return []string{aprsBotAPRSPH, aprsBotANSRVR}
-}
-
-// scopeWhere applies a section filter over a peer column.
-//
-// It is applied in SQL rather than after loading, because filtering a page after
-// pagination would leave gaps: a page with two hidden rows shows two fewer, and
-// the totals would count messages the caller cannot see.
-//
-// The match is on the base callsign, mirroring aprsScopeOfPeer. SQLite has no
-// "strip after the dash" operator, so a peer matches the bot's exact callsign or
-// any "-SSID" form of it.
-func (sc aprsScope) scopeWhere(query *gorm.DB, column string) *gorm.DB {
-	// The column is quoted: `to` is an SQLite keyword and an unquoted use in a
-	// function call is a syntax error.
-	quoted := `"` + column + `"`
-	exact := func(bot string) string {
-		return fmt.Sprintf("(UPPER(%[1]s) = ? OR UPPER(%[1]s) LIKE ?)", quoted)
-	}
-	// LIKE with a trailing "-%" matches any SSID. The underscore and percent in a
-	// callsign cannot occur — APRSCallsignRE is letters, digits and a dash — so
-	// no escaping is needed.
-	withSSID := func(bot string) string { return bot + "-%" }
-
-	switch sc {
-	case aprsScopeAPRSPH:
-		return query.Where(exact(column), aprsBotAPRSPH, withSSID(aprsBotAPRSPH))
-	case aprsScopeThursday:
-		return query.Where(exact(column), aprsBotANSRVR, withSSID(aprsBotANSRVR))
-	}
-	return query.Where(
-		"NOT ("+exact(column)+") AND NOT ("+exact(column)+")",
-		aprsBotAPRSPH, withSSID(aprsBotAPRSPH), aprsBotANSRVR, withSSID(aprsBotANSRVR),
-	)
-}
-
-// aprsScopeCounts counts each section for one direction, for the tab bar.
-func (s *server) aprsScopeCounts(callsign string, sent bool) (map[aprsScope]int64, error) {
-	callsign = normalizeCallsign(callsign)
-	counts := map[aprsScope]int64{}
-	for _, scope := range aprsScopes {
-		var total int64
-		var err error
-		if sent {
-			err = scope.scopeWhere(s.db.Model(&dbAPRSSent{}).Where("user_callsign = ?", callsign), "to").Count(&total).Error
-		} else {
-			err = scope.scopeWhere(s.db.Model(&dbAPRSReceived{}).Where("user_callsign = ?", callsign), "from").Count(&total).Error
-		}
-		if err != nil {
-			return nil, err
-		}
-		counts[scope] = total
-	}
-	return counts, nil
-}
-
 // aprsSection is one tab: where it goes, what it says and how much is in it.
 type aprsSection struct {
-	Scope   aprsScope
-	Label   string
-	Count   int64
-	URL     string
-	Current bool
-	// Direction is "received" or "sent", so the template can build a link back to
-	// the other direction in the same section.
+	Scope     aprsScope
+	Label     string
+	Count     int64
+	URL       string
+	Current   bool
 	Direction string
 }
 
-// aprsSectionTabs builds the tab list for one list page.
-func (s *server) aprsSectionTabs(lang, direction, callsign string, current aprsScope) ([]aprsSection, error) {
-	counts, err := s.aprsScopeCounts(callsign, direction == "sent")
-	if err != nil {
-		return nil, err
-	}
+// aprsSectionTabs builds the tab list for one list page from per-section counts.
+func (s *server) aprsSectionTabs(lang, direction string, counts map[aprsScope]int64, current aprsScope) []aprsSection {
 	tabs := make([]aprsSection, 0, len(aprsScopes))
 	for _, scope := range aprsScopes {
-		url := "/aprs/" + direction
-		if value := scope.queryValue(); value != "" {
-			url += "?section=" + value
-		}
 		tabs = append(tabs, aprsSection{
 			Scope:     scope,
 			Label:     s.t(lang, scope.labelKey()),
 			Count:     counts[scope],
-			URL:       url,
+			URL:       aprsListPath(direction, scope),
 			Current:   scope == current,
 			Direction: direction,
 		})
 	}
-	return tabs, nil
+	return tabs
 }

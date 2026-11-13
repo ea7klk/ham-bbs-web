@@ -273,3 +273,58 @@ func TestAPRSPHRejectsAnInvalidTarget(t *testing.T) {
 		t.Fatal("an invalid target transmitted a message")
 	}
 }
+
+// A join carries a message, as the terminal client has always required.
+//
+// On 2026-11-12 the web form sent a bare "CQ HOTG": APRS-IS accepted it, the
+// packet went out, and the group server never replied. The text is what the net
+// relays, so a join without one is a message nobody acts on.
+func TestThursdayJoinRequiresAMessage(t *testing.T) {
+	s := newTestServer(t)
+	user := testUser(t, s, dbUser{Callsign: "EA7KLK", FullName: "Op", Email: "o@example.invalid", Language: "en", EnableAPRS: true})
+
+	original := aprsClock
+	defer func() { aprsClock = original }()
+	thursday := time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC) // a Thursday
+	aprsClock = func() time.Time { return thursday }
+
+	// No text: nothing must be sent.
+	empty := invokeUserHandler(s.thursdayJoin, formRequest(http.MethodPost, "/aprs/thursday/join", url.Values{}), user)
+	if strings.Contains(empty.Body.String(), "aprs_send_success") {
+		t.Fatal("a join without a message was sent")
+	}
+	var count int64
+	s.db.Model(&dbAPRSSent{}).Where("user_callsign = ?", "EA7KLK").Count(&count)
+	if count != 0 {
+		t.Fatalf("a join without a message transmitted %d packet(s)", count)
+	}
+
+	// With text, the command carries it.
+	invokeUserHandler(s.thursdayJoin, formRequest(http.MethodPost, "/aprs/thursday/join",
+		url.Values{"text": {"hello from Madrid"}}), user)
+	var sent dbAPRSSent
+	if err := s.db.First(&sent, "user_callsign = ?", "EA7KLK").Error; err != nil {
+		t.Fatal(err)
+	}
+	if sent.To != aprsBotANSRVR {
+		t.Fatalf("join sent to %q, want ANSRVR", sent.To)
+	}
+	if !strings.HasPrefix(sent.Text, "CQ HOTG ") || !strings.Contains(sent.Text, "hello from Madrid") {
+		t.Fatalf("join body = %q, want \"CQ HOTG <text>\"", sent.Text)
+	}
+}
+
+// The join form must offer the field, or the requirement above is unfillable.
+func TestThursdayJoinFormOffersAMessageField(t *testing.T) {
+	s := newTestServer(t)
+	user := testUser(t, s, dbUser{Callsign: "EA7KLK", FullName: "Op", Email: "o@example.invalid", Language: "en", EnableAPRS: true})
+
+	original := aprsClock
+	defer func() { aprsClock = original }()
+	aprsClock = func() time.Time { return time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC) }
+
+	body := invokeUserHandler(s.aprs, formRequest(http.MethodGet, "/aprs", nil), user).Body.String()
+	if !strings.Contains(body, `name="text"`) {
+		t.Fatal("the join form has no message field")
+	}
+}

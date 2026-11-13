@@ -565,7 +565,7 @@ const templates = `{{define "layout_start"}}
 <div class="card mt wide">
   {{if not .Data.ThursdayActive}}<p class="quiet">{{tr .Lang "aprs_not_thursday_warning"}}</p>{{end}}
   <div class="row mt-sm">
-    <form method="post" action="/aprs/thursday/join"><button class="btn" type="submit" {{if not .Data.ThursdayActive}}disabled{{end}}>{{tr .Lang "aprs_join_aprs_thursday"}}</button></form>
+    <form method="post" action="/aprs/thursday/join" class="row">{{if .Data.ThursdayActive}}<label class="sr" for="thursday-text">{{tr .Lang "web_thursday_join_text"}}</label><input id="thursday-text" name="text" placeholder="{{tr .Lang "web_thursday_join_text"}}" maxlength="40" class="w-narrow" required>{{end}}<button class="btn" type="submit" {{if not .Data.ThursdayActive}}disabled{{end}}>{{tr .Lang "aprs_join_aprs_thursday"}}</button></form>
     <form method="post" action="/aprs/thursday/keepalive"><button class="btn secondary" type="submit">{{tr .Lang "aprs_keepalive_aprs_thursday"}}</button></form>
     <form method="post" action="/aprs/thursday/leave" onsubmit="return confirm({{printf "%q" (tr .Lang "aprs_leave_confirm")}})"><button class="btn danger" type="submit">{{tr .Lang "aprs_leave_aprs_thursday"}}</button></form>
   </div>

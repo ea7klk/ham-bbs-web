@@ -53,11 +53,7 @@ func (s *server) aprsSentScope(w http.ResponseWriter, r *http.Request, user *dbU
 	path := aprsListPath("sent", scope)
 	page, perPage := parseAPRSPage(r)
 	messages, pagination := s.sentAPRSPage(user.Callsign, page, perPage, path, scope)
-	tabs, err := s.aprsSectionTabs(user.Language, "sent", user.Callsign, scope)
-	if err != nil {
-		s.view(w, r, "aprs_sent", user, aprsSentPageView{Lang: user.Language, Rows: messages, Pagination: pagination, Section: scope}, "", err.Error())
-		return
-	}
+	tabs := s.aprsSectionTabs(user.Language, "sent", s.sentScopeCounts(user.Callsign), scope)
 	s.view(w, r, "aprs_sent", user, aprsSentPageView{
 		Lang:        user.Language,
 		Rows:        messages,
@@ -84,11 +80,7 @@ func (s *server) aprsReceivedScope(w http.ResponseWriter, r *http.Request, user 
 	path := aprsListPath("received", scope)
 	page, perPage := parseAPRSPage(r)
 	messages, pagination := s.receivedAPRSPage(user.Callsign, page, perPage, path, scope)
-	tabs, err := s.aprsSectionTabs(user.Language, "received", user.Callsign, scope)
-	if err != nil {
-		s.view(w, r, "aprs_received", user, aprsReceivedPageView{Lang: user.Language, Rows: messages, Pagination: pagination, Section: scope}, "", err.Error())
-		return
-	}
+	tabs := s.aprsSectionTabs(user.Language, "received", s.receivedScopeCounts(user.Callsign), scope)
 	s.view(w, r, "aprs_received", user, aprsReceivedPageView{
 		Lang:        user.Language,
 		Rows:        messages,
@@ -129,33 +121,88 @@ func parseAPRSPage(r *http.Request) (int, int) {
 	return page, perPage
 }
 
-func (s *server) sentAPRSPage(callsign string, page, perPage int, path string, scope aprsScope) ([]dbAPRSSent, aprsPagination) {
-	callsign = normalizeCallsign(callsign)
-	var total int64
-	scope.scopeWhere(s.db.Model(&dbAPRSSent{}).Where("user_callsign = ?", callsign), "to").Count(&total)
-	pagination := newAPRSPagination(path, page, perPage, total)
+// loadSentHistory returns a user's whole sent history, newest first.
+//
+// The classic BBS bounds this (200 rows), so loading it is cheap and lets the
+// section filter run in one place — see aprs_scope.go for why the filter is not
+// expressed in SQL.
+func (s *server) loadSentHistory(callsign string) []dbAPRSSent {
 	var rows []dbAPRSSent
-	scope.scopeWhere(s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
-		Where("user_callsign = ?", callsign), "to").
+	s.db.Preload("Parts", func(db *gorm.DB) *gorm.DB { return db.Order("number") }).
+		Where("user_callsign = ?", normalizeCallsign(callsign)).
 		Order("position DESC, id DESC").
-		Offset((pagination.Page - 1) * pagination.PerPage).
-		Limit(pagination.PerPage).
 		Find(&rows)
-	return rows, pagination
+	return rows
 }
 
-func (s *server) receivedAPRSPage(callsign string, page, perPage int, path string, scope aprsScope) ([]dbAPRSReceived, aprsPagination) {
-	callsign = normalizeCallsign(callsign)
-	var total int64
-	scope.scopeWhere(s.db.Model(&dbAPRSReceived{}).Where("user_callsign = ?", callsign), "from").Count(&total)
-	pagination := newAPRSPagination(path, page, perPage, total)
+// loadReceivedHistory returns a user's whole received history, newest first.
+func (s *server) loadReceivedHistory(callsign string) []dbAPRSReceived {
 	var rows []dbAPRSReceived
-	scope.scopeWhere(s.db.Where("user_callsign = ?", callsign), "from").
+	s.db.Where("user_callsign = ?", normalizeCallsign(callsign)).
 		Order("position DESC, id DESC").
-		Offset((pagination.Page - 1) * pagination.PerPage).
-		Limit(pagination.PerPage).
 		Find(&rows)
-	return rows, pagination
+	return rows
+}
+
+// sentAPRSPage returns one page of one section of the sent history.
+//
+// The filter is applied to the whole history before pagination, so a page is
+// dense and the total counts only what the caller can actually see. Filtering a
+// page after slicing would leave gaps and an inflated total.
+func (s *server) sentAPRSPage(callsign string, page, perPage int, path string, scope aprsScope) ([]dbAPRSSent, aprsPagination) {
+	all := s.loadSentHistory(callsign)
+	filtered := make([]dbAPRSSent, 0, len(all))
+	for _, row := range all {
+		if aprsScopeOfMessage(row.To, row.Text) == scope {
+			filtered = append(filtered, row)
+		}
+	}
+	pagination := newAPRSPagination(path, page, perPage, int64(len(filtered)))
+	return pageSlice(filtered, pagination), pagination
+}
+
+// receivedAPRSPage is the same for the received history.
+func (s *server) receivedAPRSPage(callsign string, page, perPage int, path string, scope aprsScope) ([]dbAPRSReceived, aprsPagination) {
+	all := s.loadReceivedHistory(callsign)
+	filtered := make([]dbAPRSReceived, 0, len(all))
+	for _, row := range all {
+		if aprsScopeOfMessage(row.From, row.Text) == scope {
+			filtered = append(filtered, row)
+		}
+	}
+	pagination := newAPRSPagination(path, page, perPage, int64(len(filtered)))
+	return pageSlice(filtered, pagination), pagination
+}
+
+// sentScopeCounts tallies each section of a user's sent history.
+func (s *server) sentScopeCounts(callsign string) map[aprsScope]int64 {
+	counts := map[aprsScope]int64{}
+	for _, row := range s.loadSentHistory(callsign) {
+		counts[aprsScopeOfMessage(row.To, row.Text)]++
+	}
+	return counts
+}
+
+// receivedScopeCounts tallies each section of a user's received history.
+func (s *server) receivedScopeCounts(callsign string) map[aprsScope]int64 {
+	counts := map[aprsScope]int64{}
+	for _, row := range s.loadReceivedHistory(callsign) {
+		counts[aprsScopeOfMessage(row.From, row.Text)]++
+	}
+	return counts
+}
+
+// pageSlice returns the rows for the pagination's current page.
+func pageSlice[T any](rows []T, pagination aprsPagination) []T {
+	start := (pagination.Page - 1) * pagination.PerPage
+	if start >= len(rows) {
+		return nil
+	}
+	end := start + pagination.PerPage
+	if end > len(rows) {
+		end = len(rows)
+	}
+	return rows[start:end]
 }
 
 func newAPRSPagination(path string, page, perPage int, total int64) aprsPagination {

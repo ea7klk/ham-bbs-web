@@ -12,21 +12,81 @@ import (
 // tests pin the classification, the SQL that applies it, and that the sections
 // partition the history rather than hiding messages.
 
-func TestScopeOfPeer(t *testing.T) {
-	cases := map[string]aprsScope{
-		"APRSPH":   aprsScopeAPRSPH,
-		"aprsph":   aprsScopeAPRSPH,
-		"APRSPH-0": aprsScopeAPRSPH,
-		"ANSRVR":   aprsScopeThursday,
-		"ansrvr":   aprsScopeThursday,
-		"DN9RZ":    aprsScopeDirect,
-		"DN9RZ-10": aprsScopeDirect,
-		"":         aprsScopeDirect,
-		"APRSPHX":  aprsScopeDirect,
+// The classifier is content-first, peer-second. Every case is a shape observed in
+// the live database; the first version of this rule missed the majority of the
+// Thursday traffic because it classified by peer alone.
+func TestAPRSScopeOfMessage(t *testing.T) {
+	cases := []struct {
+		name string
+		peer string
+		text string
+		want aprsScope
+	}{
+		// The actual #APRSThursday conversation: relayed by participants.
+		{"relayed by a participant", "KB3KBR-2", "N:HOTG happy aprsthursday!!!", aprsScopeThursday},
+		{"relayed, another station", "HI3RRR-7", "N:HOTG Saludos desde la Republica Dominicana", aprsScopeThursday},
+		{"relayed from the net bot", "APRSPH", "N:HOTG net message", aprsScopeThursday},
+
+		// The group server itself, for Thursday.
+		{"ansrvr summary", "ANSRVR", "N:HOTG 24 Messages Sent", aprsScopeThursday},
+		{"ansrvr removal", "ANSRVR", "N:HOTG Removed From Group{GJ}", aprsScopeThursday},
+
+		// Other groups on the same server are not Thursday.
+		{"other group", "ANSRVR", "N:AARN Check in", aprsScopeGroups},
+		{"other group removed", "ANSRVR", "N:NEAPRS Removed From Group{UT}", aprsScopeGroups},
+		{"other group relayed", "TI2BSH-15", "N:NEAPRS hello", aprsScopeGroups},
+
+		// An acknowledgement names no group.
+		{"acknowledgement", "ANSRVR", "ack1B}", aprsScopeGroups},
+
+		// Our own outgoing commands.
+		{"join command", "ANSRVR", "CQ HOTG", aprsScopeThursday},
+		{"join with text", "ANSRVR", "CQ HOTG hello from Madrid", aprsScopeThursday},
+		{"keepalive", "ANSRVR", "K HOTG", aprsScopeThursday},
+		{"leave", "ANSRVR", "U HOTG", aprsScopeThursday},
+
+		// The APRSPH bot, by peer.
+		{"aprsph reply", "APRSPH", "1113 0501Z:QSP 8 stations. LIST for recipients.", aprsScopeAPRSPH},
+		{"aprsph checkin ack", "APRSPH", "Ur checked in 1113 0204Z. QRX pls til 2359Z.", aprsScopeAPRSPH},
+		{"aprsph with ssid", "APRSPH-0", "hello", aprsScopeAPRSPH},
+
+		// Direct traffic, including text that merely looks like a tag.
+		{"person", "DN9RZ", "hello", aprsScopeDirect},
+		{"person with ssid", "DN9RZ-10", "hi", aprsScopeDirect},
+		{"N: but no group", "DN9RZ", "N: hello", aprsScopeDirect},
+		{"N: with too long a tag", "DN9RZ", "N:ABCDEFGHI text", aprsScopeDirect},
+		{"hotg in ordinary prose", "DN9RZ", "join us on hotg tomorrow", aprsScopeDirect},
+		{"callsign that starts the same", "APRSPHX", "hello", aprsScopeDirect},
 	}
-	for peer, want := range cases {
-		if got := aprsScopeOfPeer(peer); got != want {
-			t.Fatalf("aprsScopeOfPeer(%q) = %q, want %q", peer, got, want)
+	for _, tc := range cases {
+		if got := aprsScopeOfMessage(tc.peer, tc.text); got != tc.want {
+			t.Fatalf("%s: aprsScopeOfMessage(%q, %q) = %q, want %q",
+				tc.name, tc.peer, tc.text, got, tc.want)
+		}
+	}
+}
+
+func TestAPRSGroupTag(t *testing.T) {
+	cases := map[string]struct {
+		group string
+		ok    bool
+	}{
+		"N:HOTG 24 Messages Sent": {"HOTG", true},
+		"N:HOTG":                  {"HOTG", true},
+		"N:AARN hello":            {"AARN", true},
+		"N:HOTG{a}":               {"HOTG", true},
+		"n:hotg lower":            {"HOTG", true},
+		"N:NEAPRS hello":          {"NEAPRS", true},
+		"N:ABCDEFGH text":         {"ABCDEFGH", true},
+		"N:":                      {"", false},
+		"N:ABCDEFGHI text":        {"", false},
+		"ack1B}":                  {"", false},
+		"hello":                   {"", false},
+	}
+	for text, want := range cases {
+		group, ok := aprsGroupTag(text)
+		if ok != want.ok || group != want.group {
+			t.Fatalf("aprsGroupTag(%q) = %q,%t; want %q,%t", text, group, ok, want.group, want.ok)
 		}
 	}
 }
@@ -58,9 +118,13 @@ func seedScopedAPRS(t *testing.T, s *server) *dbUser {
 	received := []dbAPRSReceived{
 		{UserCallsign: "EA7KLK", Position: 0, At: now(), From: "DN9RZ", To: "EA7KLK", Text: "from a person"},
 		{UserCallsign: "EA7KLK", Position: 1, At: now(), From: "EA1ABC-7", To: "EA7KLK", Text: "from another person"},
-		{UserCallsign: "EA7KLK", Position: 2, At: now(), From: "APRSPH", To: "EA7KLK", Text: "N:APRSPH 3 Messages Sent"},
+		{UserCallsign: "EA7KLK", Position: 2, At: now(), From: "APRSPH", To: "EA7KLK", Text: "1113 0501Z:QSP 8 stations"},
 		{UserCallsign: "EA7KLK", Position: 3, At: now(), From: "ANSRVR", To: "EA7KLK", Text: "N:HOTG 239 Messages Sent"},
 		{UserCallsign: "EA7KLK", Position: 4, At: now(), From: "ANSRVR", To: "EA7KLK", Text: "ack1B}"},
+		// Relayed by a participant, which is how the Thursday net actually
+		// arrives — the case the peer-only rule put in "other stations".
+		{UserCallsign: "EA7KLK", Position: 5, At: now(), From: "KB3KBR-2", To: "EA7KLK", Text: "N:HOTG happy aprsthursday!!!"},
+		{UserCallsign: "EA7KLK", Position: 6, At: now(), From: "ANSRVR", To: "EA7KLK", Text: "N:AARN Check in"},
 	}
 	for i := range received {
 		if err := s.db.Create(&received[i]).Error; err != nil {
@@ -80,54 +144,41 @@ func seedScopedAPRS(t *testing.T, s *server) *dbUser {
 	return user
 }
 
-// The SQL filter is the part that could silently disagree with the Go
-// classification, so it is checked against the same rows.
-func TestScopeWhereMatchesTheClassification(t *testing.T) {
+// The classification is one function used by the list, the counts and the tabs,
+// so the three cannot disagree. This checks that it partitions a realistic
+// history exactly: every message in one section, none in two, none missing.
+func TestScopePartitionsTheHistory(t *testing.T) {
 	s := newTestServer(t)
 	seedScopedAPRS(t, s)
 
-	cases := map[aprsScope]struct{ received, sent int64 }{
-		aprsScopeDirect:   {2, 1},
-		aprsScopeAPRSPH:   {1, 1},
-		aprsScopeThursday: {2, 1},
-	}
-	for scope, want := range cases {
-		var received, sent int64
-		scope.scopeWhere(s.db.Model(&dbAPRSReceived{}), "from").Count(&received)
-		scope.scopeWhere(s.db.Model(&dbAPRSSent{}), "to").Count(&sent)
-		if received != want.received || sent != want.sent {
-			t.Fatalf("%s: received=%d sent=%d, want %d/%d", scope, received, sent, want.received, want.sent)
-		}
-	}
-}
-
-// The sections must partition the history exactly: every message in one, none in
-// two, none missing.
-func TestScopeWherePartitionsTheHistory(t *testing.T) {
-	s := newTestServer(t)
-	seedScopedAPRS(t, s)
-
-	var total int64
-	s.db.Model(&dbAPRSReceived{}).Count(&total)
-	var sum int64
+	received := s.loadReceivedHistory("EA7KLK")
+	sum := int64(0)
 	for _, scope := range aprsScopes {
-		var count int64
-		scope.scopeWhere(s.db.Model(&dbAPRSReceived{}), "from").Count(&count)
+		count := int64(0)
+		for _, row := range received {
+			if aprsScopeOfMessage(row.From, row.Text) == scope {
+				count++
+			}
+		}
 		sum += count
 	}
-	if sum != total {
-		t.Fatalf("sections hold %d of %d received messages", sum, total)
+	if sum != int64(len(received)) {
+		t.Fatalf("sections hold %d of %d received messages", sum, len(received))
 	}
 
-	s.db.Model(&dbAPRSSent{}).Count(&total)
+	sent := s.loadSentHistory("EA7KLK")
 	sum = 0
 	for _, scope := range aprsScopes {
-		var count int64
-		scope.scopeWhere(s.db.Model(&dbAPRSSent{}), "to").Count(&count)
+		count := int64(0)
+		for _, row := range sent {
+			if aprsScopeOfMessage(row.To, row.Text) == scope {
+				count++
+			}
+		}
 		sum += count
 	}
-	if sum != total {
-		t.Fatalf("sections hold %d of %d sent messages", sum, total)
+	if sum != int64(len(sent)) {
+		t.Fatalf("sections hold %d of %d sent messages", sum, len(sent))
 	}
 }
 
@@ -140,14 +191,14 @@ func TestSectionPagesShowOnlyTheirOwnMessages(t *testing.T) {
 	if !strings.Contains(direct.Body.String(), "from a person") {
 		t.Fatal("the direct section does not show a message from another station")
 	}
-	for _, bot := range []string{"N:APRSPH 3 Messages Sent", "N:HOTG 239 Messages Sent"} {
+	for _, bot := range []string{"1113 0501Z:QSP 8 stations", "N:HOTG 239 Messages Sent"} {
 		if strings.Contains(direct.Body.String(), bot) {
 			t.Fatalf("the direct section shows bot traffic: %q", bot)
 		}
 	}
 
 	aprsph := invokeUserHandler(s.aprsReceived, formRequest(http.MethodGet, "/aprs/received?section=aprsph", nil), user)
-	if !strings.Contains(aprsph.Body.String(), "N:APRSPH 3 Messages Sent") {
+	if !strings.Contains(aprsph.Body.String(), "1113 0501Z:QSP 8 stations") {
 		t.Fatal("the APRSPH section does not show the bot's message")
 	}
 	if strings.Contains(aprsph.Body.String(), "from a person") {
@@ -155,10 +206,25 @@ func TestSectionPagesShowOnlyTheirOwnMessages(t *testing.T) {
 	}
 
 	thursday := invokeUserHandler(s.aprsReceived, formRequest(http.MethodGet, "/aprs/received?section=thursday", nil), user)
-	for _, want := range []string{"N:HOTG 239 Messages Sent", "ack1B}"} {
-		if !strings.Contains(thursday.Body.String(), want) {
-			t.Fatalf("the Thursday section does not show %q — an ack names no group, so it must still land here", want)
-		}
+	if !strings.Contains(thursday.Body.String(), "N:HOTG 239 Messages Sent") {
+		t.Fatal("the Thursday section does not show the tagged group message")
+	}
+	// The relayed message is the point: it came from another station, and the
+	// peer-only rule would have left it in "other stations".
+	if !strings.Contains(thursday.Body.String(), "N:HOTG happy aprsthursday!!!") {
+		t.Fatal("the Thursday section does not show a message relayed by a participant")
+	}
+	if strings.Contains(thursday.Body.String(), "N:AARN Check in") {
+		t.Fatal("another group's traffic was filed under Thursday")
+	}
+	// An acknowledgement names no group. It must not be guessed into Thursday;
+	// it belongs with the rest of the group server's ungrouped traffic.
+	if strings.Contains(thursday.Body.String(), "ack1B}") {
+		t.Fatal("an acknowledgement was filed under Thursday")
+	}
+	groups := invokeUserHandler(s.aprsReceived, formRequest(http.MethodGet, "/aprs/received?section=groups", nil), user)
+	if !strings.Contains(groups.Body.String(), "ack1B}") {
+		t.Fatal("the acknowledgement did not land with the group server")
 	}
 }
 
@@ -235,9 +301,12 @@ func TestSectionAppliesToRowsWrittenByTheTerminal(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatal(err)
 	}
-	body := invokeUserHandler(s.aprsReceived, formRequest(http.MethodGet, "/aprs/received?section=aprsph", nil), user).Body.String()
-	if !strings.Contains(body, "N:APRSPH 12 Messages Sent") {
-		t.Fatal("a row written by the terminal did not appear in the APRSPH section")
+	// "N:APRSPH" is a group tag, so this row is group traffic, not bot traffic —
+	// which is exactly the distinction that matters and that the first version of
+	// the rule got wrong in the other direction.
+	groups := invokeUserHandler(s.aprsReceived, formRequest(http.MethodGet, "/aprs/received?section=groups", nil), user).Body.String()
+	if !strings.Contains(groups, "N:APRSPH 12 Messages Sent") {
+		t.Fatal("a tagged row written by the terminal did not appear in the groups section")
 	}
 }
 

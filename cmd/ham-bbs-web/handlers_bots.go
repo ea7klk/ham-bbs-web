@@ -104,7 +104,23 @@ func (s *server) thursdayJoin(w http.ResponseWriter, r *http.Request, user *dbUs
 		s.view(w, r, "aprs", user, s.aprsOverview(user), "", s.t(user.Language, "aprs_not_thursday_warning"))
 		return
 	}
-	s.dispatchBotCommand(w, r, user, aprsBotANSRVR, aprsHOTGJoin, "web_aprs_thursday_join")
+
+	// A join carries a message, and the terminal client has always required one.
+	// A bare "CQ HOTG" is accepted by APRS-IS and then ignored by the group
+	// server: on 2026-11-12 the web form sent exactly that, the packet went out,
+	// and no confirmation ever came back. The text is what the net relays.
+	text := sanitizeSingleLineText(r.FormValue("text"))
+	if text == "" {
+		s.view(w, r, "aprs", user, s.aprsOverview(user), "", s.t(user.Language, "aprsph_checkin_text"))
+		return
+	}
+	command := aprsHOTGJoin + " " + text
+	if len([]rune(cleanAPRSBody(command))) > aprsCommandMaxBody {
+		s.view(w, r, "aprs", user, s.aprsOverview(user), "",
+			sprintfAll(s.t(user.Language, "aprs_command_too_long"), aprsCommandMaxBody, len([]rune(cleanAPRSBody(command)))))
+		return
+	}
+	s.dispatchBotCommand(w, r, user, aprsBotANSRVR, command, "web_aprs_thursday_join")
 }
 
 // thursdayLeave unsubscribes: "U HOTG".
