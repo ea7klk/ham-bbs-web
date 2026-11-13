@@ -1,5 +1,43 @@
 # Sharing the SQLite database
 
+## Which application is canonical
+
+**The classic SSH BBS is canonical. This web app is its companion.**
+
+Both applications read and write one file, but they are not peers, and the
+difference decides every question that starts "which one is right?":
+
+- **Data.** If the two ever disagree about what a row says, the SSH BBS's value
+  wins. This app must never treat its own view as authoritative over the file the
+  SSH BBS is serving.
+- **Schema.** Tables, columns, indexes and migrations originate in
+  `simple-ham-bbs`. This app's `AutoMigrate` may create what that repository has
+  already declared — it must never be the first to introduce a table, a column or
+  an index, because the canonical side would then be running against a schema it
+  does not know about.
+- **Rules.** Reply depth, text sanitising, the sysop bootstrap, token formats, the
+  registration meter, the email index and the APRS message sections are all
+  defined by the SSH BBS and mirrored here. A change is made there first, then
+  here, and this app follows rather than negotiates.
+- **Conflicts in review.** When the two disagree and neither is obviously wrong,
+  the SSH BBS's behaviour is the specification and this app has the bug.
+
+This is not a comment on which is better. The terminal client is the older,
+more complete surface — it owns APRS receive and ACK, activation and the schema —
+and a companion that quietly disagreed with it would be worse than no companion.
+
+### What that means in an incident
+
+On 2026-11-12 the ham-bbs volumes were re-provisioned and the database was
+replaced. The SSH BBS opens the file per session, so it picked up the replacement
+at once; this app opens it once at startup and kept serving the deleted inode for
+fifteen hours — reading a database that no longer existed on disk while the
+canonical one moved on. Restarting this app was the fix, and it is the general
+shape of the failure: **this app must never assume the file it opened is still the
+file on disk.** See the reload invariant in `AGENTS.md`.
+
+## The shared file
+
 Both applications must see the same file at the same in-container path:
 
 ```text

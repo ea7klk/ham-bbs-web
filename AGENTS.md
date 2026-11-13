@@ -100,6 +100,14 @@ everyone out (acceptable for a single-replica deployment).
 
 ## Invariants that must not regress
 
+0. **The classic SSH BBS is canonical; this app is its companion.** The two share
+   one SQLite file but are not peers. Where they disagree about a row, the SSH
+   BBS wins. Schema, migrations and the shared rules (reply depth, sanitising,
+   sysop bootstrap, token formats, registration meter, email index, APRS message
+   sections) originate in `simple-ham-bbs` and are mirrored here — never the
+   other way round. In review, when a disagreement is not obviously one side's
+   bug, the SSH BBS's behaviour is the specification and this app has the bug.
+   See `docs/shared-database.md`.
 1. **Shared schema.** `dbUser`, `dbBulletin`, `dbBoard`, `dbMessage`,
    `dbAPRSSent`, `dbAPRSSentPart`, `dbAPRSReceived` are byte-for-byte the same
    structs as `simple-ham-bbs/bbs/cmd/bbs/database.go`. Do not rename fields,
