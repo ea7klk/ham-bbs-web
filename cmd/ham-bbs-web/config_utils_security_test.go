@@ -144,12 +144,21 @@ func TestNewServerSeedsDatabaseAndReadsEnvironment(t *testing.T) {
 	if err := os.WriteFile(translationFile, []byte(`{"en":{"web_login":"Sign in"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	dbFile := filepath.Join(dataDir, "shared.sqlite")
 	t.Setenv("BBS_DATA_DIR", dataDir)
-	t.Setenv("BBS_DB_FILE", filepath.Join(dataDir, "shared.sqlite"))
+	t.Setenv("BBS_DB_FILE", dbFile)
 	t.Setenv("BBS_TRANSLATIONS_FILE", translationFile)
 	t.Setenv("BBS_WEB_ADDR", ":9999")
 	t.Setenv("APRS_IS_PORT", "14581")
 	t.Setenv("BBS_SYSOPS", "ea7klk")
+	// The database belongs to the classic BBS, so the fixture stands in for that
+	// side: open and migrate the file here, as the SSH BBS would, before the web
+	// app is allowed to see it.
+	if seed, err := openDatabase(dbFile); err != nil {
+		t.Fatal(err)
+	} else if sqlDB, err := seed.DB(); err == nil {
+		defer sqlDB.Close()
+	}
 	app, err := newServer()
 	if err != nil {
 		t.Fatal(err)

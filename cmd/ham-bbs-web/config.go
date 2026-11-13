@@ -68,7 +68,10 @@ type server struct {
 	// the account flows need. A deployment without SMTP configured runs with
 	// activation skipped, exactly as the SSH BBS does.
 	mail *mailer
-	mu   sync.RWMutex
+	// dbWatch remembers which file was opened, so the process can tell when the
+	// canonical database has been replaced underneath it. See dbwatch.go.
+	dbWatch *dbFileWatch
+	mu      sync.RWMutex
 	// background tracks fire-and-forget work (such as the login beacon) so a
 	// test can wait for it before removing its temporary directory.
 	background sync.WaitGroup
@@ -166,7 +169,13 @@ func newServer() (*server, error) {
 	if err := os.MkdirAll(filepath.Join(dataDir, "aprs"), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := openDatabase(cfg.dbFile)
+	// The shared database belongs to the classic BBS. Refuse to create it: see
+	// dbwatch.go for what a seeded empty file costs.
+	db, err := openCanonicalDatabase(cfg.dbFile, dbFileWaitTimeout)
+	if err != nil {
+		return nil, err
+	}
+	watch, err := newDBFileWatch(cfg.dbFile)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +183,7 @@ func newServer() (*server, error) {
 	if err := readJSON(cfg.transFile, &text, map[string]map[string]any{}); err != nil {
 		return nil, err
 	}
-	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle(), mail: newMailerFromEnv()}
+	app := &server{cfg: cfg, db: db, text: text, tpl: parseTemplates(text), sessions: map[string]string{}, throttle: newAuthThrottle(), mail: newMailerFromEnv(), dbWatch: watch}
 	// Say once at startup whether mail is usable, rather than discovering it on
 	// the first send. The classic SSH BBS records the same two states, so an
 	// operator comparing the two logs sees the same answer from both.
