@@ -34,7 +34,7 @@ spec:
             name: bbs-smtp
         - secretRef:
             name: bbs-web-env
-        image: ghcr.io/ea7klk/ham-bbs-web@sha256:34442799c6333bd7ebc2914408cd3613b51905652cc9b918c9795cc5e32ec03d
+        image: ghcr.io/ea7klk/ham-bbs-web@sha256:54ef76a44f9cbf8e8f20dd2ef8cf03ab1c9c34dced18c1c18d69e8d6b0651afe
         imagePullPolicy: IfNotPresent
         name: bbs-web
         ports:
