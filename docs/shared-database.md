@@ -145,6 +145,18 @@ updates the shared SQLite tables. The web image only reads the shared APRS
 tables and can add sent-message rows when a user sends from the web UI; it does
 not run an APRS receiver or any ACK loop.
 
+**Acknowledgements are entirely the BBS's job, and that is deliberate.** The
+receiver acknowledges every inbound message addressed to an APRS-enabled account,
+whether the recipient ever opens the web app, is asleep, or has never logged in
+there at all — the acknowledgement is owed to the sender, not to a session. The web
+app therefore has no ACK path to duplicate, fall out of step, or fire twice, and a
+user who never uses the terminal is still acknowledged.
+
+The acknowledgement is sent **from the SSID the message was addressed to**: a
+message to `EA7KLK-15` is acknowledged by `EA7KLK-15`, because that is the station
+the sender will compare against. All *outgoing* messages still leave from SSID 0 —
+see `aprsSSID0` — which is why both surfaces warn about it before sending.
+
 ## Dockge deployment (self-hosted, outside Fleet)
 
 1. Copy `.env.example` to `.env` and edit the passwords, sysop callsigns, and APRS callsigns.

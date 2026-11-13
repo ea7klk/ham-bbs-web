@@ -328,3 +328,88 @@ func TestThursdayJoinFormOffersAMessageField(t *testing.T) {
 		t.Fatal("the join form has no message field")
 	}
 }
+
+// Every page that can transmit must say that messages leave from SSID 0.
+//
+// The station cannot transmit from any other SSID, so an operator addressing
+// EA7KLK-15 should not expect traffic to appear to come from EA7KLK-15. The
+// warning belongs on the pages that send, not buried in help.
+func TestSsid0WarningIsShownOnEverySendingPage(t *testing.T) {
+	s := newTestServer(t)
+	user := testUser(t, s, dbUser{Callsign: "EA7KLK", FullName: "Op", Email: "o@example.invalid", Language: "en", EnableAPRS: true})
+
+	original := aprsClock
+	defer func() { aprsClock = original }()
+	aprsClock = func() time.Time { return time.Date(2026, 11, 12, 12, 0, 0, 0, time.UTC) }
+
+	pages := map[string]func(http.ResponseWriter, *http.Request, *dbUser){
+		"/aprs/send":   s.aprsSendForm,
+		"/aprs/aprsph": s.aprsphPage,
+		"/aprs":        s.aprs,
+	}
+	for path, handler := range pages {
+		response := invokeUserHandler(handler, formRequest(http.MethodGet, path, nil), user)
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s status = %d", path, response.Code)
+		}
+		body := response.Body.String()
+		if !strings.Contains(body, `class="notice"`) {
+			t.Fatalf("%s has no notice block", path)
+		}
+		// The station is named, not described abstractly.
+		if !strings.Contains(body, "EA7KLK-0") {
+			t.Fatalf("%s does not name the station messages leave from", path)
+		}
+		if !strings.Contains(body, "web_ssid0_warning_title") {
+			t.Fatalf("%s is missing the warning heading", path)
+		}
+	}
+}
+
+// The pages that do not transmit must not carry it, or it becomes noise nobody
+// reads.
+func TestSsid0WarningIsNotEverywhere(t *testing.T) {
+	s := newTestServer(t)
+	user := testUser(t, s, dbUser{Callsign: "EA7KLK", FullName: "Op", Email: "o@example.invalid", Language: "en", EnableAPRS: true})
+
+	for _, page := range []struct {
+		path    string
+		handler func(http.ResponseWriter, *http.Request, *dbUser)
+	}{
+		{"/boards", s.boards},
+		{"/bulletins", s.bulletins},
+		{"/profile", s.profileForm},
+	} {
+		body := invokeUserHandler(page.handler, formRequest(http.MethodGet, page.path, nil), user).Body.String()
+		if strings.Contains(body, `class="notice"`) {
+			t.Fatalf("%s shows the send warning although it cannot send", page.path)
+		}
+	}
+}
+
+// The web app never acknowledges: reception and ACKs belong to the classic BBS,
+// which does it for every account whether or not anybody opens the web app.
+func TestWebAppDoesNotAcknowledge(t *testing.T) {
+	s := newTestServer(t)
+	user := testUser(t, s, dbUser{Callsign: "EA7KLK", FullName: "Op", Email: "o@example.invalid", Language: "en", EnableAPRS: true})
+
+	// Sending a message must not produce an "ack…" packet of its own.
+	response := invokeUserHandler(s.aprsSend, formRequest(http.MethodPost, "/aprs/send", url.Values{
+		"destination": {"DN9RZ"}, "destination_ssid": {"0"}, "text": {"hello"},
+	}), user)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("send status = %d", response.Code)
+	}
+	var rows []dbAPRSSent
+	s.db.Find(&rows)
+	for _, row := range rows {
+		for _, part := range row.Parts {
+			if strings.HasPrefix(strings.ToLower(part.Text), "ack") {
+				t.Fatalf("the web app sent an acknowledgement: %q", part.Text)
+			}
+		}
+		if strings.HasPrefix(strings.ToLower(row.Text), "ack") {
+			t.Fatalf("the web app sent an acknowledgement: %q", row.Text)
+		}
+	}
+}

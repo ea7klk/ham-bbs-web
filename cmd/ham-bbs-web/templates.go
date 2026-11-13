@@ -56,6 +56,9 @@ func parseTemplates(text map[string]map[string]any) *template.Template {
 			return translation(text, lang, scope.descriptionKey())
 		},
 		"scopeValue": func(scope aprsScope) string { return scope.queryValue() },
+		// ssid0 renders the station every outgoing message leaves from, so the
+		// warning below can name it instead of making the reader infer it.
+		"ssid0": aprsSSID0,
 		// navActive marks the current section. It compares by prefix so a board
 		// page keeps "Boards" lit, and "/" is matched exactly so the home tab is
 		// not lit on every page.
@@ -203,6 +206,10 @@ const templates = `{{define "layout_start"}}
     /* a label that is also a control: prose, but small caps like the rest */
     .metaline { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
     .quiet { font-size: 12.5px; color: var(--muted); }
+    /* A standing fact about how this station behaves, not an error: amber rather
+       than magenta, and a left rule so it reads as a note beside the form. */
+    .notice { border: 1px solid var(--rule-hi); border-left: 3px solid var(--amber); background: #ffcf8f0d; color: #e8e4f5; padding: 10px 13px; margin: 0 0 18px; font-size: 12.5px; }
+    .notice strong { color: var(--amber); letter-spacing: .1em; text-transform: uppercase; font-size: 10.5px; }
     .prose p { margin: 0 0 10px; }
     .prose p:last-child { margin-bottom: 0; }
     .w-narrow { max-width: 150px; }
@@ -563,6 +570,7 @@ const templates = `{{define "layout_start"}}
 
 <div class="strip"><h2>{{tr .Lang "aprs_join_aprs_thursday"}}</h2><span>ANSRVR · {{.Data.ThursdayGroup}}</span></div>
 <div class="card mt wide">
+  {{template "ssid0_warning" .}}
   {{if not .Data.ThursdayActive}}<p class="quiet">{{tr .Lang "aprs_not_thursday_warning"}}</p>{{end}}
   <div class="row mt-sm">
     <form method="post" action="/aprs/thursday/join" class="row">{{if .Data.ThursdayActive}}<label class="sr" for="thursday-text">{{tr .Lang "web_thursday_join_text"}}</label><input id="thursday-text" name="text" placeholder="{{tr .Lang "web_thursday_join_text"}}" maxlength="40" class="w-narrow" required>{{end}}<button class="btn" type="submit" {{if not .Data.ThursdayActive}}disabled{{end}}>{{tr .Lang "aprs_join_aprs_thursday"}}</button></form>
@@ -611,6 +619,7 @@ const templates = `{{define "layout_start"}}
 
 {{define "aprs_aprsph"}}{{template "layout_start" .}}
 <div class="pagehead"><div><p class="kicker">APRS · {{.Data.Bot}}</p><h1>{{tr .Lang "aprsph_menu_title"}}</h1><p class="lede">{{tr .Lang "aprsph_menu_hint"}}</p></div><div class="pageactions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+{{template "ssid0_warning" .}}
 
 <div class="split">
   <div>
@@ -686,9 +695,12 @@ const templates = `{{define "layout_start"}}
 {{template "layout_end" .}}
 {{end}}
 
+{{define "ssid0_warning"}}<p class="notice"><strong>{{tr .Lang "web_ssid0_warning_title"}}</strong> {{printf (tr .Lang "aprs_ssid0_warning") (ssid0 .User.Callsign)}}</p>{{end}}
+
 {{define "aprs_send"}}
 {{template "layout_start" .}}
 <div class="pagehead"><div><p class="kicker">APRS</p><h1>{{tr .Lang "aprs_send_message"}}</h1></div><div class="pageactions"><a class="btn secondary" href="/aprs">{{tr .Lang "web_back_to_aprs"}}</a></div></div>
+{{template "ssid0_warning" .}}
 <form class="stack" method="post" action="/aprs/send">
   <div class="cols"><div><label>{{tr .Lang "aprs_destination_callsign"}}</label><input name="destination" required></div><div><label>{{tr .Lang "aprs_destination_ssid"}}</label><input name="destination_ssid" maxlength="2" value="0"></div></div>
   <div><label>{{tr .Lang "aprs_text"}}</label><textarea name="text"></textarea></div>

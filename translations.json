@@ -366,7 +366,9 @@
     "web_latest_bulletin": "Neuestes Bulletin",
     "aprs_section_groups": "Gruppenserver",
     "aprs_section_groups_desc": "ANSRVR-Verkehr anderer Gruppen als #APRSThursday sowie Bestätigungen ohne Gruppennamen.",
-    "web_thursday_join_text": "Deine Nachricht an das Netz"
+    "web_thursday_join_text": "Deine Nachricht an das Netz",
+    "aprs_ssid0_warning": "Jede gesendete Nachricht geht von %s aus, unabhängig von der adressierten SSID. Diese Station sendet unter keiner anderen SSID.",
+    "web_ssid0_warning_title": "Gesendet als"
   },
   "en": {
     "about_graphics": "Graphics: plain ANSI text, suitable for simple terminals.",
@@ -735,7 +737,9 @@
     "web_latest_bulletin": "Latest bulletin",
     "aprs_section_groups": "Group server",
     "aprs_section_groups_desc": "ANSRVR traffic from groups other than #APRSThursday, and acknowledgements that name no group.",
-    "web_thursday_join_text": "Your message to the net"
+    "web_thursday_join_text": "Your message to the net",
+    "aprs_ssid0_warning": "Every message you send leaves from %s, whatever SSID you address. This station does not transmit from any other SSID.",
+    "web_ssid0_warning_title": "Sending as"
   },
   "es": {
     "about_graphics": "Gráficos: texto ANSI simple, apto para terminales sencillos.",
@@ -1104,7 +1108,9 @@
     "web_latest_bulletin": "Último boletín",
     "aprs_section_groups": "Servidor de grupos",
     "aprs_section_groups_desc": "Tráfico de ANSRVR de grupos distintos de #APRSThursday y acuses que no nombran ningún grupo.",
-    "web_thursday_join_text": "Tu mensaje a la red"
+    "web_thursday_join_text": "Tu mensaje a la red",
+    "aprs_ssid0_warning": "Todos los mensajes que envíes salen desde %s, sea cual sea la SSID que addresses. Esta estación no transmite desde ninguna otra SSID.",
+    "web_ssid0_warning_title": "Enviando como"
   },
   "fr": {
     "about_graphics": "Graphismes : texte ANSI simple, adapté aux terminaux simples.",
@@ -1473,6 +1479,8 @@
     "web_latest_bulletin": "Dernier bulletin",
     "aprs_section_groups": "Serveur de groupes",
     "aprs_section_groups_desc": "Trafic ANSRVR des groupes autres que #APRSThursday, et accusés qui ne nomment aucun groupe.",
-    "web_thursday_join_text": "Ton message au réseau"
+    "web_thursday_join_text": "Ton message au réseau",
+    "aprs_ssid0_warning": "Chaque message que tu envoies part de %s, quelle que soit la SSID visée. Cette station n'émet depuis aucune autre SSID.",
+    "web_ssid0_warning_title": "Émission en tant que"
   }
 }
